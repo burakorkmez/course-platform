@@ -351,7 +351,7 @@ export function getStats(course: Course) {
 export function getProgress(course: Course) {
   const total = getLessons(course).length
   const completed = enrollments[course.slug] ?? 0
-  return { owned: course.slug in enrollments, completed, total, percent: Math.round((completed / total) * 100) }
+  return { owned: course.slug in enrollments, completed, total, percent: total ? Math.round((completed / total) * 100) : 0 }
 }
 
 export const canWatch = (course: Course, lesson: FlatLesson) => getProgress(course).owned || !!lesson.free

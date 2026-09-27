@@ -233,12 +233,11 @@ export default async function LessonPage({ params }: PageProps<"/courses/[course
                     { icon: FileText, name: "Lesson notes.pdf", meta: "240 KB" },
                     { icon: FolderGit2, name: "GitHub repository", meta: "github.com" },
                   ].map(({ icon: Icon, name, meta }) => (
-                    <li key={name}>
-                      <a href="#" className="flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-accent">
-                        <Icon className="size-4 text-primary" />
-                        <span className="flex-1 truncate">{name}</span>
-                        <span className="text-xs text-muted-foreground">{meta}</span>
-                      </a>
+                    // ponytail: plain rows until Phase 3 serves attachments through the signed download route
+                    <li key={name} className="flex items-center gap-3 px-4 py-3 text-sm">
+                      <Icon className="size-4 text-primary" />
+                      <span className="flex-1 truncate">{name}</span>
+                      <span className="text-xs text-muted-foreground">{meta}</span>
                     </li>
                   ))}
                 </ul>

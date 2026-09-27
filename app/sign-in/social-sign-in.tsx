@@ -37,7 +37,8 @@ export function SocialSignIn({ next }: { next: string }) {
     setPending(provider)
     setError(null)
     // On success the browser is redirected to the provider, so only the error path returns here.
-    const { error } = await authClient.signIn.social({ provider, callbackURL: next })
+    // A network failure rejects instead of returning an error, so fold it into the same path.
+    const { error } = await authClient.signIn.social({ provider, callbackURL: next }).catch((error: Error) => ({ error }))
     if (error) {
       setError(error.message ?? "Something went wrong. Please try again.")
       setPending(null)

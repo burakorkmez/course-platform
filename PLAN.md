@@ -4,7 +4,7 @@
 
 You're a solo content creator who wants your own paid course platform: one admin/instructor (you), with everyone else a student who signs up, pays, and watches pre-recorded courses. This spec comes out of the alignment interview and removes the big guesswork before implementation. **When it's approved, the next step is a phased implementation plan, not code.**
 
-Repo: a fresh `create-next-app` scaffold (Next.js 16.3.6, React 19.2.8, Tailwind 4, TS). No app code yet. Per AGENTS.md, read `node_modules/next/dist/docs/` before writing Next code: `proxy.ts` replaces middleware, and the caching model has changed.
+Repo at interview time: a fresh `create-next-app` scaffold (Next.js 16.3.6, React 19.2.8, Tailwind 4, TS) with no app code. Since then, a UI pass has built the student pages (`/`, `/courses`, `/courses/[course]`, `/courses/[course]/[lesson]`) on hard-coded courses, progress and access in `lib/courses.ts`, plus Neon Auth sign-in (`/sign-in`, `/api/auth/[...path]`, `proxy.ts`). The phases below replace that fake data and `canWatch` with the real ones. Per AGENTS.md, read `node_modules/next/dist/docs/` before writing Next code: `proxy.ts` replaces middleware, and the caching model has changed.
 
 ---
 
@@ -84,11 +84,11 @@ Users live in the managed `neon_auth.user` table (uuid). We declare it read-only
 - **lessons:** id, section_id → sections (cascade), slug (unique per course), title, content_md, video_file_id, video_path, duration_s, is_free_preview, is_published, position
 - **attachments:** id, lesson_id → lessons (cascade), name, file_id, file_path, size_bytes
 - **lesson_progress:** PK(user_id, lesson_id); user_id → neon_auth.user (cascade), lesson_id → lessons (cascade); position_s, completed_at (nullable), updated_at
-- **purchases:** polar_order_id PK, user_id, polar_product_id, kind(course|lifetime), course_id → courses (**RESTRICT**, so the DB itself blocks hard-deleting a paid course), status(paid|partially_refunded|refunded), timestamps
+- **purchases:** polar_order_id PK, user_id, polar_product_id, kind(course|lifetime), course_id → courses (**RESTRICT**, so the DB itself blocks hard-deleting a paid course), status(paid|partially_refunded|refunded), polar_modified_at (used to ignore out-of-order events), timestamps
 - **subscriptions:** polar_subscription_id PK, user_id, status, current_period_end, cancel_at_period_end, polar_modified_at (used to ignore out-of-order events)
 - **webhook_events:** webhook_id PK, type, received_at (idempotency)
 
-Ordering: an integer `position`, rewritten in one transaction on reorder. Course % = completed published lessons ÷ published lessons.
+Ordering: an integer `position`, rewritten in one transaction on reorder. Course % = completed published lessons ÷ published lessons, and 0% when a course has none.
 
 ## 5. Architecture
 
@@ -116,11 +116,12 @@ Ordering: an integer `position`, rewritten in one transaction on reorder. Course
 
 1. Verify the signature with the `standardwebhooks` library. The adapter can't verify new secrets. Invalid → 403.
 2. In one transaction: insert `webhook-id` into `webhook_events` ON CONFLICT DO NOTHING (duplicate → 200 and stop), then apply the event:
-   - `order.paid`: map product → course or lifetime, then upsert into purchases.
-   - `order.refunded` / `order.updated`: upsert the status.
-   - `subscription.*`: upsert the row from the payload, skipping it if `modified_at` is older than the stored one.
-3. After commit: lifetime purchase + subscription not already canceling → cancel it at period end.
-4. Unknown product or missing external id → report to Sentry and return 200. Any other error → 500 so Polar retries (10 retries, 10s timeout).
+   - `order.paid` / `order.refunded` / `order.updated`: map product → course or lifetime, then upsert the purchase with its status.
+   - `subscription.*`: upsert the subscription from the payload.
+   - Both upserts skip the write when the payload's `modified_at` is older than the stored `polar_modified_at`, so a late `order.updated` can't undo a refund. A null `modified_at` counts as `created_at`.
+   - Lifetime purchase + subscription not already canceling → PATCH it `cancel_at_period_end=true`, still before commit.
+3. Commit, then 200. The `webhook-id` only lands together with all of its work: any failure (including the PATCH) rolls it back, so Polar's retry redoes everything. Every step is an idempotent upsert or PATCH, so redoing is safe. No outbox: Polar's retries are the queue. Add one only if a step ever becomes non-idempotent or too slow for the 10s timeout.
+4. Unknown product or missing external id → roll back, report to Sentry, return 200 (a non-2xx would count toward auto-disabling the endpoint). Once the product is mapped, re-deliver the event from Polar and it applies normally. Any other error → 500 so Polar retries (10 retries, 10s timeout).
 
 ## 8. Video & progress
 
@@ -142,7 +143,7 @@ Ordering: an integer `position`, rewritten in one transaction on reorder. Course
   - Access is checked on every signing path; admin is checked in every admin action.
   - No custom rate limiting in v1.
 - **Testing / done:**
-  - Vitest unit tests for the access function and webhook handler: paid, full vs partial refund, duplicate `webhook-id`, out-of-order subscription events, and lifetime canceling the subscription.
+  - Vitest unit tests for the access function and webhook handler: paid, full vs partial refund, duplicate `webhook-id`, out-of-order order and subscription events, lifetime canceling the subscription, and a failed cancel leaving the event retryable.
   - A manual sandbox run-through of all 3 products + refund + cancel before launch.
   - Sentry receiving events in production.
 
@@ -280,10 +281,9 @@ Each phase ends with a checkpoint you can verify before moving on. The riskiest 
   - **Vitest tests first.**
 - `/api/webhooks/polar`:
   1. Verify the signature.
-  2. In one transaction: dedupe on `webhook-id`, then run `applyEvent`.
-  3. After commit, the lifetime purchase cancels any subscription at period end.
-  - Unknown product → Sentry + 200. Any other error → 500.
-  - `applyEvent` is pure-ish and unit-tested with fixture payloads: paid, full refund, partial refund, duplicate, out-of-order subscription update, revoked, and lifetime-while-subscribed.
+  2. In one transaction: dedupe on `webhook-id`, run `applyEvent`, and for a lifetime purchase cancel any subscription at period end. Commit only when all of it succeeded.
+  - Unknown product → roll back, Sentry, 200 (re-deliver from Polar once mapped). Any other error → 500.
+  - `applyEvent` is pure-ish and unit-tested with fixture payloads: paid, full refund, partial refund, duplicate, out-of-order order and subscription updates, revoked, lifetime-while-subscribed, and a failed cancel rolling back the `webhook-id`.
 - Checkout server action:
   - Runs `requireUser`, then `buyOptions` (refuses if already owned), then creates a Polar checkout with `external_customer_id=user.id` and `success_url=/checkout/success?product=…`.
 - `/checkout/success`: a client component polls a server action every 2s for up to 60s, then redirects to the course. After that, it shows a "still processing" message.

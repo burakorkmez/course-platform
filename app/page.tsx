@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { CourseCard } from "@/components/course-card"
+import { HeroVideo } from "@/components/hero-video"
 import { ProgressRing } from "@/components/progress"
 import { SiteFooter } from "@/components/site-footer"
 import { SiteHeader } from "@/components/site-header"
@@ -86,18 +87,7 @@ export default function Home() {
       <main className="flex-1">
         {/* -mt-18 slides the hero under the h-18 header so the globe fills the whole first screen */}
         <section className="relative isolate -mt-18 flex min-h-svh flex-col items-center justify-center px-4 pt-32 pb-24 text-center sm:px-6">
-          <video
-            autoPlay
-            muted
-            loop
-            playsInline
-            poster="/hero-globe.jpg"
-            aria-hidden
-            className="absolute inset-0 -z-10 size-full object-cover motion-safe:animate-in fade-in duration-1000"
-          >
-            {/* No source matches under reduced motion, so the poster (a still of the globe) shows instead. */}
-            <source src="/hero-globe.mp4" type="video/mp4" media="(prefers-reduced-motion: no-preference)" />
-          </video>
+          <HeroVideo />
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_38rem_24rem_at_50%_52%,rgb(5_6_15/0.85)_35%,rgb(5_6_15/0.55)_65%,transparent)]"

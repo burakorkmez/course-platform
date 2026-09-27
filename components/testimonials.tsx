@@ -1,6 +1,7 @@
 import Image from "next/image"
-import { Star } from "lucide-react"
+import { Pause, Play, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { buttonVariants } from "@/components/ui/button"
 
 type Testimonial = { name: string; role: string; avatar: string; quote: string }
 
@@ -104,7 +105,7 @@ function TestimonialCard({ name, role, avatar, quote, duplicate }: Testimonial &
 function Column({ items, className }: { items: Testimonial[]; className?: string }) {
   return (
     <div className={cn("min-w-0 flex-1", className)}>
-      <div className="flex animate-marquee-up flex-col gap-6 pb-6 hover:[animation-play-state:paused] motion-reduce:animate-none">
+      <div className="flex animate-marquee-up flex-col gap-6 pb-6 group-has-checked/reviews:[animation-play-state:paused] hover:[animation-play-state:paused] motion-reduce:animate-none">
         {[false, true].flatMap((duplicate) =>
           items.map((t) => <TestimonialCard key={`${duplicate}-${t.name}`} {...t} duplicate={duplicate} />)
         )}
@@ -115,10 +116,23 @@ function Column({ items, className }: { items: Testimonial[]; className?: string
 
 export function Testimonials() {
   return (
-    <div className="relative flex max-h-[42rem] gap-6 overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,#000_15%,#000_85%,transparent)]">
-      <Column items={testimonials.slice(0, 3)} className="[--duration:34s]" />
-      <Column items={testimonials.slice(3, 6)} className="hidden [--duration:44s] md:block" />
-      <Column items={testimonials.slice(6, 9)} className="hidden [--duration:39s] lg:block" />
+    <div className="group/reviews">
+      <div className="relative flex max-h-[42rem] gap-6 overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,#000_15%,#000_85%,transparent)]">
+        <Column items={testimonials.slice(0, 3)} className="[--duration:34s]" />
+        <Column items={testimonials.slice(3, 6)} className="hidden [--duration:44s] md:block" />
+        <Column items={testimonials.slice(6, 9)} className="hidden [--duration:39s] lg:block" />
+      </div>
+      {/* A native checkbox, so pausing needs no JS: the columns read it through :has(). Hidden under reduced motion, where nothing moves. */}
+      <label
+        className={cn(
+          buttonVariants({ variant: "outline", size: "icon-lg" }),
+          "mx-auto mt-6 flex cursor-pointer rounded-full has-focus-visible:border-ring has-focus-visible:ring-3 has-focus-visible:ring-ring/50 motion-reduce:hidden"
+        )}
+      >
+        <input type="checkbox" aria-label="Pause reviews" className="peer sr-only" />
+        <Pause className="peer-checked:hidden" />
+        <Play className="hidden peer-checked:block" />
+      </label>
     </div>
   )
 }

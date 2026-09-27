@@ -14,8 +14,12 @@ const quote = testimonials.find((t) => t.name === "Amara Nwosu")!
 
 export default async function SignInPage({ searchParams }: PageProps<"/sign-in">) {
   const { next } = await searchParams
-  // Only same-site paths, so ?next= can't bounce people to another site ("//evil.com", "/\evil.com").
-  const destination = typeof next === "string" && /^\/(?![\\/])/.test(next) ? next : "/courses"
+  // Only same-site paths, so ?next= can't bounce people to another site. Parsing the way the browser will catches
+  // "//evil.com", "/\evil.com" and "/<tab>/evil.com"; the "//" check catches "/.//evil.com", which normalizes to "//evil.com".
+  // A placeholder origin stands in for ours, so a spoofed Host header can't widen what counts as same-site.
+  const url = typeof next === "string" && next ? URL.parse(next, "http://lumen.invalid") : null
+  const destination =
+    url?.origin === "http://lumen.invalid" && !url.pathname.startsWith("//") ? url.pathname + url.search + url.hash : "/courses"
 
   const { data: session } = await auth.getSession()
   if (session?.user) redirect(destination)
