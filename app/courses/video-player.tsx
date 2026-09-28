@@ -30,7 +30,10 @@ export function VideoPlayer({ imagekitId, src, poster, lesson }: { imagekitId: s
     if (finish) autoCompleted.current = true
     if (!force && !finish && Date.now() - lastSave.current < 15_000) return
     lastSave.current = Date.now()
-    saveProgress(lesson.courseSlug, lesson.lessonSlug, { positionS: time, ...(finish && { completed: true }) })
+    // A failed completion is retried on the next timeupdate; a failed position save just waits for the next one.
+    saveProgress(lesson.courseSlug, lesson.lessonSlug, { positionS: time, ...(finish && { completed: true }) }).catch(() => {
+      if (finish) autoCompleted.current = false
+    })
   })
 
   // Picks up where the viewer stopped, unless they'd finished the lesson or stopped in its last seconds.

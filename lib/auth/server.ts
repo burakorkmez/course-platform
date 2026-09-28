@@ -9,7 +9,12 @@ export const auth = createNeonAuth({
 
 // Admin = verified email in ADMIN_EMAILS.
 export const isAdmin = (user?: { email: string; emailVerified: boolean } | null) =>
-  !!user?.emailVerified && (process.env.ADMIN_EMAILS ?? "").split(",").some((e) => e.trim().toLowerCase() === user.email.toLowerCase())
+  !!user?.emailVerified &&
+  (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    // Blank entries (unset var, trailing comma) must never match an empty email.
+    .some((e) => e && e === user.email.toLowerCase())
 
 // Call it in every admin page and action, not just the layout:
 // layouts don't re-run on navigation, and actions are reachable by direct POST.

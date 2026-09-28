@@ -82,7 +82,7 @@ function Feature({ title, description, className, children }: { title: string; d
 export default async function Home() {
   const courses = await getCourses()
   // The first free preview lesson on the platform, for the "Watch before you buy" tile.
-  const freePreview = courses.flatMap((c) => c.lessons.filter((l) => l.free).map((l) => `/courses/${c.slug}/${l.slug}`))[0] ?? "/courses"
+  const freePreview = courses.flatMap((c) => c.lessons.filter((l) => l.free && l.videoPath).map((l) => `/courses/${c.slug}/${l.slug}`))[0] ?? "/courses"
   return (
     <div className="relative isolate flex flex-1 flex-col overflow-x-clip">
       <SiteHeader />
