@@ -1,13 +1,24 @@
-import Image from "next/image"
 import Link from "next/link"
-import { Clock } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { Image } from "@imagekit/next"
+import { Clock, PlayCircle } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { ProgressBar } from "@/components/progress"
-import { getProgress, getStats, type Course } from "@/lib/courses"
+import type { Course } from "@/lib/catalog"
+
+// Fills its (relative, sized) parent: the ImageKit image, or a soft glow with a play icon when there's none yet.
+export function CourseThumbnail({ src, sizes, preload, className }: { src: string | null; sizes: string; preload?: boolean; className?: string }) {
+  return src ? (
+    <Image src={src} alt="" fill sizes={sizes} preload={preload} className={cn("object-cover", className)} />
+  ) : (
+    <div aria-hidden className={cn("absolute inset-0 grid place-items-center bg-[radial-gradient(ellipse_at_center,rgb(91_108_255/0.25),transparent_70%)]", className)}>
+      <PlayCircle className="size-10 text-primary/60" strokeWidth={1.25} />
+    </div>
+  )
+}
 
 export function CourseCard({ course, showProgress }: { course: Course; showProgress?: boolean }) {
-  const { lessons, duration } = getStats(course)
-  const { owned, percent } = getProgress(course)
+  const { lessons, duration } = course.stats
+  const { owned, percent } = course.progress
 
   return (
     <Link
@@ -15,18 +26,15 @@ export function CourseCard({ course, showProgress }: { course: Course; showProgr
       className="group flex flex-col overflow-hidden rounded-2xl border bg-card transition hover:border-primary/40 hover:shadow-[0_8px_40px_-12px_var(--glow)]"
     >
       <div className="relative aspect-video overflow-hidden border-b">
-        <Image
+        <CourseThumbnail
           src={course.thumbnail}
-          alt=""
-          fill
           sizes="(min-width: 1024px) 352px, (min-width: 640px) 50vw, 100vw"
-          className="object-cover transition duration-500 group-hover:scale-105"
+          className="transition duration-500 group-hover:scale-105"
         />
-        {course.badge && <Badge className="absolute top-3 left-3">{course.badge}</Badge>}
       </div>
       <div className="flex flex-1 flex-col gap-2 p-5">
         <h3 className="font-heading text-lg font-medium tracking-tight">{course.title}</h3>
-        <p className="line-clamp-2 text-sm text-muted-foreground">{course.tagline}</p>
+        {course.tagline && <p className="line-clamp-2 text-sm text-muted-foreground">{course.tagline}</p>}
         <div className="mt-auto flex items-center gap-4 pt-3 text-xs text-muted-foreground">
           <span>{lessons} lessons</span>
           <span className="flex items-center gap-1">

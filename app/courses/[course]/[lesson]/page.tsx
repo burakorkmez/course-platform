@@ -1,57 +1,37 @@
 import type { Metadata } from "next"
-import Image from "next/image"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import {
-  Captions,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  FileText,
-  FolderGit2,
-  Lock,
-  Maximize,
-  Play,
-  PlayCircle,
-  Search,
-  Settings,
-  Volume2,
-} from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Check, ChevronLeft, ChevronRight, Clapperboard, Lock, PlayCircle, Search } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { SubmitButton } from "@/components/submit-button"
+import { CourseThumbnail } from "@/components/course-card"
 import { Curriculum } from "@/components/curriculum"
 import { ProgressBar, ProgressRing } from "@/components/progress"
 import { Logo } from "@/components/site-header"
 import { UserButton } from "@/components/user-button"
-import { PRICE, canWatch, courses, getCourse, getLessons, getProgress } from "@/lib/courses"
-
-export const dynamicParams = false
-
-export function generateStaticParams() {
-  return courses.flatMap((c) => getLessons(c).map((l) => ({ course: c.slug, lesson: l.slug })))
-}
+import { PRICE, getCourse } from "@/lib/catalog"
+import { publicUrl } from "@/lib/imagekit"
+import { saveProgress } from "../../actions"
+import { VideoPlayer } from "../../video-player"
 
 async function load(params: PageProps<"/courses/[course]/[lesson]">["params"]) {
   const { course: courseSlug, lesson: lessonSlug } = await params
-  const course = getCourse(courseSlug)
-  const lessons = course ? getLessons(course) : []
-  const lesson = lessons.find((l) => l.slug === lessonSlug)
+  const course = await getCourse(courseSlug)
+  const lesson = course?.lessons.find((l) => l.slug === lessonSlug)
   if (!course || !lesson) notFound()
-  return { course, lessons, lesson }
+  return { course, lesson }
 }
 
 export async function generateMetadata({ params }: PageProps<"/courses/[course]/[lesson]">): Promise<Metadata> {
   const { course, lesson } = await load(params)
-  return { title: `${lesson.title} · ${course.title} — Lumen` }
+  return { title: `${lesson.title} · ${course.title} — Lumen`, robots: { index: false } }
 }
 
 export default async function LessonPage({ params }: PageProps<"/courses/[course]/[lesson]">) {
-  const { course, lessons, lesson } = await load(params)
-  const progress = getProgress(course)
-  const locked = !canWatch(course, lesson)
-  const done = progress.owned && lesson.index < progress.completed
+  const { course, lesson } = await load(params)
+  const { progress, lessons } = course
+  const { locked } = lesson
+  const { done } = lesson
   const prev = lessons[lesson.index - 1]
   const next = lessons[lesson.index + 1]
   const lessonHref = (slug: string) => `/courses/${course.slug}/${slug}`
@@ -92,7 +72,7 @@ export default async function LessonPage({ params }: PageProps<"/courses/[course
             <Link href={`/courses/${course.slug}`} className="block font-heading text-lg font-semibold tracking-tight hover:text-primary">
               {course.title}
             </Link>
-            <p className="mt-1 text-sm text-muted-foreground">{course.tagline}</p>
+            {course.tagline && <p className="mt-1 text-sm text-muted-foreground">{course.tagline}</p>}
             {progress.owned && (
               <div className="mt-4 flex items-center gap-3">
                 <ProgressBar value={progress.percent} className="flex-1" />
@@ -105,63 +85,45 @@ export default async function LessonPage({ params }: PageProps<"/courses/[course
 
         <main className="order-first min-w-0 p-4 sm:p-6 xl:order-none xl:p-8">
           <div className="relative aspect-video overflow-hidden rounded-xl border bg-black shadow-[0_20px_80px_-30px_var(--glow)]">
-            <Image
-              src={course.thumbnail}
-              alt=""
-              fill
-              preload
-              sizes="(min-width: 1280px) 900px, 100vw"
-              className={cn("object-cover", locked ? "opacity-15 blur-sm" : "opacity-45")}
-            />
-            {locked ? (
-              <div className="absolute inset-0 grid place-items-center p-6 text-center">
-                <div>
-                  <span className="mx-auto grid size-12 place-items-center rounded-full border border-primary/30 bg-primary/10">
-                    <Lock className="size-5 text-primary" />
-                  </span>
-                  <h2 className="mt-4 font-heading text-xl font-semibold">This lesson is locked</h2>
-                  <p className="mt-2 hidden text-sm text-muted-foreground sm:block">
-                    Buy the course to watch every lesson, or start with the free previews.
-                  </p>
-                  <div className="mt-5 flex justify-center gap-3">
-                    <Button size="lg">Buy course · {PRICE}</Button>
-                    <Link href="/#pricing" className={buttonVariants({ variant: "outline", size: "lg" })}>
-                      See plans
-                    </Link>
-                  </div>
-                </div>
-              </div>
+            {!locked && lesson.videoPath ? (
+              <VideoPlayer
+                key={lesson.slug}
+                imagekitId={process.env.IMAGEKIT_ID!}
+                src={publicUrl(lesson.videoPath)}
+                lesson={{ courseSlug: course.slug, lessonSlug: lesson.slug, resumeAt: lesson.positionS, done, track: course.signedIn }}
+              />
             ) : (
               <>
-                <button
-                  type="button"
-                  aria-label="Play lesson"
-                  className="absolute inset-0 m-auto grid size-16 place-items-center rounded-full bg-primary text-primary-foreground shadow-glow transition hover:scale-105"
-                >
-                  <Play className="ml-0.5 size-6 fill-current" />
-                </button>
-                <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 to-transparent px-4 pt-10 pb-3">
-                  <ProgressBar value={done ? 100 : 35} className="h-1 bg-white/15" />
-                  <div className="mt-3 flex items-center gap-4 text-foreground/90">
-                    <button type="button" aria-label="Play">
-                      <Play className="size-4 fill-current" />
-                    </button>
-                    <span className="font-mono text-xs">
-                      {done ? lesson.duration : "04:12"} / {lesson.duration}
-                    </span>
-                    <div className="ml-auto flex items-center gap-4">
-                      {[
-                        { icon: Volume2, label: "Volume" },
-                        { icon: Captions, label: "Captions" },
-                        { icon: Settings, label: "Settings" },
-                        { icon: Maximize, label: "Fullscreen" },
-                      ].map(({ icon: Icon, label }) => (
-                        <button key={label} type="button" aria-label={label} className="transition-colors hover:text-primary">
-                          <Icon className="size-4" />
-                        </button>
-                      ))}
+                <CourseThumbnail
+                  src={course.thumbnail}
+                  sizes="(min-width: 1280px) 900px, 100vw"
+                  preload
+                  className={locked ? "opacity-15 blur-sm" : "opacity-30"}
+                />
+                <div className="absolute inset-0 grid place-items-center p-6 text-center">
+                  {locked ? (
+                    <div>
+                      <span className="mx-auto grid size-12 place-items-center rounded-full border border-primary/30 bg-primary/10">
+                        <Lock className="size-5 text-primary" />
+                      </span>
+                      <h2 className="mt-4 font-heading text-xl font-semibold">This lesson is locked</h2>
+                      <p className="mt-2 hidden text-sm text-muted-foreground sm:block">
+                        Buy the course to watch every lesson, or start with the free previews.
+                      </p>
+                      <div className="mt-5 flex justify-center gap-3">
+                        <Button size="lg">Buy course · {PRICE}</Button>
+                        <Link href="/#pricing" className={buttonVariants({ variant: "outline", size: "lg" })}>
+                          See plans
+                        </Link>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div>
+                      <Clapperboard className="mx-auto size-10 text-primary/60" strokeWidth={1.25} />
+                      <h2 className="mt-4 font-heading text-xl font-semibold">Video coming soon</h2>
+                      <p className="mt-2 text-sm text-muted-foreground">This lesson&apos;s video hasn&apos;t been uploaded yet.</p>
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -173,16 +135,14 @@ export default async function LessonPage({ params }: PageProps<"/courses/[course
           <h1 className="mt-1 font-heading text-2xl font-semibold tracking-tight sm:text-3xl">{lesson.title}</h1>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
-            {!locked &&
-              (done ? (
-                <Button variant="secondary" size="lg">
-                  <Check data-icon="inline-start" /> Completed
-                </Button>
-              ) : (
-                <Button size="lg">
-                  <Check data-icon="inline-start" /> Mark complete
-                </Button>
-              ))}
+            {!locked && course.signedIn && (
+              // Toggles: "Completed" marks it not complete again.
+              <form action={saveProgress.bind(null, course.slug, lesson.slug, { completed: !done })}>
+                <SubmitButton variant={done ? "secondary" : "default"} size="lg" aria-pressed={done}>
+                  <Check data-icon="inline-start" /> {done ? "Completed" : "Mark complete"}
+                </SubmitButton>
+              </form>
+            )}
             {prev && (
               <Link href={lessonHref(prev.slug)} className={buttonVariants({ variant: "ghost", size: "lg" })}>
                 <ChevronLeft data-icon="inline-start" /> Previous
@@ -195,55 +155,30 @@ export default async function LessonPage({ params }: PageProps<"/courses/[course
             )}
           </div>
 
-          <Tabs defaultValue="overview" className="mt-10">
-            <TabsList variant="line" className="w-full justify-start border-b">
-              <TabsTrigger value="overview" className="flex-none px-3">
-                Overview
-              </TabsTrigger>
-              <TabsTrigger value="resources" className="flex-none px-3">
-                Resources
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="overview" className="pt-4">
-              <p className="max-w-2xl leading-relaxed text-muted-foreground">
-                In this lesson of <span className="text-foreground">{course.title}</span> we work through “{lesson.title}”, part of the{" "}
-                {lesson.section} section. Code along in your own editor, then compare with the finished source in Resources.
+          <section className="mt-10 border-t pt-6">
+            <h2 className="font-heading text-lg font-semibold">About this lesson</h2>
+            {locked ? (
+              <p className="mt-3 text-sm text-muted-foreground">The lesson notes unlock with the course.</p>
+            ) : (
+              // ponytail: plain text until the markdown renderer lands (react-markdown + rehype-pretty-code, per PLAN.md).
+              <p className="mt-3 max-w-2xl leading-relaxed whitespace-pre-line text-muted-foreground">
+                {lesson.contentMd ||
+                  `In this lesson of ${course.title} we work through “${lesson.title}”, part of the ${lesson.section} section. Code along in your own editor as you watch.`}
               </p>
-              <div className="mt-6 max-w-2xl rounded-xl border bg-card p-5">
-                <h2 className="font-medium">How to get the most out of it</h2>
-                <ul className="mt-4 flex flex-col gap-3 text-sm text-muted-foreground">
-                  {["Watch it through once, then code along", "Pause and try each step before you see the solution", "Mark it complete to keep your progress in sync"].map(
-                    (tip) => (
-                      <li key={tip} className="flex gap-2.5">
-                        <Check className="mt-0.5 size-4 shrink-0 text-primary" /> {tip}
-                      </li>
-                    )
-                  )}
-                </ul>
-              </div>
-            </TabsContent>
-            <TabsContent value="resources" className="pt-4">
-              {locked ? (
-                <p className="text-sm text-muted-foreground">Resources unlock when you buy the course.</p>
-              ) : (
-                <ul className="flex max-w-2xl flex-col divide-y rounded-xl border bg-card">
-                  {[
-                    { icon: Download, name: `${lesson.slug}-starter.zip`, meta: "1.2 MB" },
-                    { icon: Download, name: `${lesson.slug}-final.zip`, meta: "1.4 MB" },
-                    { icon: FileText, name: "Lesson notes.pdf", meta: "240 KB" },
-                    { icon: FolderGit2, name: "GitHub repository", meta: "github.com" },
-                  ].map(({ icon: Icon, name, meta }) => (
-                    // ponytail: plain rows until Phase 3 serves attachments through the signed download route
-                    <li key={name} className="flex items-center gap-3 px-4 py-3 text-sm">
-                      <Icon className="size-4 text-primary" />
-                      <span className="flex-1 truncate">{name}</span>
-                      <span className="text-xs text-muted-foreground">{meta}</span>
+            )}
+            <div className="mt-6 max-w-2xl rounded-xl border bg-card p-5">
+              <h3 className="font-medium">How to get the most out of it</h3>
+              <ul className="mt-4 flex flex-col gap-3 text-sm text-muted-foreground">
+                {["Watch it through once, then code along", "Pause and try each step before you see the solution", "Mark it complete to keep your progress in sync"].map(
+                  (tip) => (
+                    <li key={tip} className="flex gap-2.5">
+                      <Check className="mt-0.5 size-4 shrink-0 text-primary" /> {tip}
                     </li>
-                  ))}
-                </ul>
-              )}
-            </TabsContent>
-          </Tabs>
+                  )
+                )}
+              </ul>
+            </div>
+          </section>
         </main>
 
         <aside className="flex flex-col gap-4 p-4 sm:p-6 xl:sticky xl:top-16 xl:h-[calc(100svh-4rem)] xl:overflow-y-auto xl:border-l">
@@ -278,7 +213,7 @@ export default async function LessonPage({ params }: PageProps<"/courses/[course
             {next ? (
               <Link href={lessonHref(next.slug)} className="group -mx-2 mt-2 flex items-center gap-4 rounded-xl p-2 transition-colors hover:bg-accent">
                 <span className="grid size-12 shrink-0 place-items-center rounded-lg border bg-background/60">
-                  {canWatch(course, next) ? <PlayCircle className="size-5 text-primary" /> : <Lock className="size-4 text-muted-foreground" />}
+                  {next.locked ? <Lock className="size-4 text-muted-foreground" /> : <PlayCircle className="size-5 text-primary" />}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">

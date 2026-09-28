@@ -1,22 +1,19 @@
 import type { Metadata } from "next"
-import Image from "next/image"
 import Link from "next/link"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, BookOpen } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
-import { CourseCard } from "@/components/course-card"
+import { CourseCard, CourseThumbnail } from "@/components/course-card"
 import { ProgressBar } from "@/components/progress"
 import { SiteFooter } from "@/components/site-footer"
 import { SiteHeader } from "@/components/site-header"
-import { courses, getProgress, resumeLesson } from "@/lib/courses"
+import { getCourses, resumeLesson } from "@/lib/catalog"
 
 export const metadata: Metadata = { title: "Courses — Lumen" }
 
-export default function CoursesPage() {
-  const inProgress = courses.find((c) => {
-    const p = getProgress(c)
-    return p.owned && p.percent < 100
-  })
+export default async function CoursesPage() {
+  const courses = await getCourses()
+  const inProgress = courses.find((c) => c.progress.owned && c.progress.percent < 100)
   const next = inProgress && resumeLesson(inProgress)
 
   return (
@@ -37,7 +34,7 @@ export default function CoursesPage() {
         {inProgress && next && (
           <section className="mt-10 grid overflow-hidden rounded-2xl border bg-card sm:grid-cols-[20rem_1fr]">
             <div className="relative aspect-video sm:aspect-auto">
-              <Image src={inProgress.thumbnail} alt="" fill sizes="(min-width: 640px) 320px, 100vw" className="object-cover" />
+              <CourseThumbnail src={inProgress.thumbnail} sizes="(min-width: 640px) 320px, 100vw" />
             </div>
             <div className="flex flex-col gap-3 p-6">
               <p className="text-sm font-medium text-primary">Continue learning</p>
@@ -46,13 +43,10 @@ export default function CoursesPage() {
                 Up next: {next.index + 1}. {next.title} · {next.duration}
               </p>
               <div className="flex items-center gap-3">
-                <ProgressBar value={getProgress(inProgress).percent} className="flex-1" />
-                <span className="text-xs text-muted-foreground">{getProgress(inProgress).percent}%</span>
+                <ProgressBar value={inProgress.progress.percent} className="flex-1" />
+                <span className="text-xs text-muted-foreground">{inProgress.progress.percent}%</span>
               </div>
-              <Link
-                href={`/courses/${inProgress.slug}/${next.slug}`}
-                className={cn(buttonVariants({ size: "lg" }), "mt-2 w-fit")}
-              >
+              <Link href={`/courses/${inProgress.slug}/${next.slug}`} className={cn(buttonVariants({ size: "lg" }), "mt-2 w-fit")}>
                 Resume lesson <ArrowRight data-icon="inline-end" />
               </Link>
             </div>
@@ -60,11 +54,18 @@ export default function CoursesPage() {
         )}
 
         <h2 className="mt-16 mb-6 font-heading text-2xl font-semibold tracking-tight">All courses</h2>
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {courses.map((c) => (
-            <CourseCard key={c.slug} course={c} showProgress />
-          ))}
-        </div>
+        {courses.length ? (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {courses.map((c) => (
+              <CourseCard key={c.slug} course={c} showProgress />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed bg-card/40 px-6 py-16 text-center">
+            <BookOpen className="size-10 text-primary/60" strokeWidth={1.25} />
+            <p className="text-sm text-muted-foreground">The first courses are on their way. Check back soon.</p>
+          </div>
+        )}
       </main>
 
       <SiteFooter />
