@@ -14,9 +14,10 @@ glows from a single focal point. Every page (landing, course sales, lesson playe
 | Testimonials wall, `Stars` | `components/testimonials.tsx` |
 | Curriculum list (done / current / locked / free rows) | `components/curriculum.tsx` |
 | `ProgressRing`, `ProgressBar` | `components/progress.tsx` |
-| Fake catalog, lessons, student progress | `lib/courses.ts` |
+| Catalog loaders (courses, lessons, access) | `lib/catalog.ts`, reading the Postgres tables in `lib/db/schema.ts` |
 | App pages | `app/courses` (catalog), `app/courses/[course]` (course page), `app/courses/[course]/[lesson]` (player) |
-| Images | `public/app-preview.jpg`, `public/courses/*`, `public/avatars/*` (see Imagery) |
+| Admin | `app/admin` (sidebar shell, course list, course and lesson editors); its form pieces and `MediaUpload` live in `app/admin/components.tsx` |
+| Images | `public/app-preview.jpg`, `public/avatars/*` (see Imagery). Course thumbnails and trailers are uploaded to ImageKit from the admin; `CourseThumbnail` shows the glow fallback until one exists. `public/courses/*` are the old demo thumbnails, now unused |
 | Reference implementation | `app/page.tsx` (landing) |
 
 Tokens use shadcn's names, so `npx shadcn@latest add <component>` gives on-brand components with no extra styling.

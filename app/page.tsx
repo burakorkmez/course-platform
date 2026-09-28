@@ -13,7 +13,7 @@ import { SiteFooter } from "@/components/site-footer"
 import { SiteHeader } from "@/components/site-header"
 import { Stars, Testimonials, avatars } from "@/components/testimonials"
 import preview from "@/public/app-preview.jpg"
-import { courses } from "@/lib/courses"
+import { getCourses } from "@/lib/catalog"
 
 // ponytail: static until Phase 5 reads prices from Polar
 const plans = [
@@ -79,7 +79,10 @@ function Feature({ title, description, className, children }: { title: string; d
   )
 }
 
-export default function Home() {
+export default async function Home() {
+  const courses = await getCourses()
+  // The first free preview lesson on the platform, for the "Watch before you buy" tile.
+  const freePreview = courses.flatMap((c) => c.lessons.filter((l) => l.free && l.videoPath).map((l) => `/courses/${c.slug}/${l.slug}`))[0] ?? "/courses"
   return (
     <div className="relative isolate flex flex-1 flex-col overflow-x-clip">
       <SiteHeader />
@@ -250,7 +253,7 @@ export default function Home() {
                 <div aria-hidden className="pointer-events-none absolute inset-0 bg-linear-to-t from-background via-background/40 to-transparent" />
                 <Badge className="absolute top-3 left-3">Free preview</Badge>
                 <Link
-                  href="/courses/codex-mobile-apps/course-introduction"
+                  href={freePreview}
                   aria-label="Watch a free preview lesson"
                   className="absolute inset-0 m-auto grid size-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-glow transition hover:scale-110"
                 >
@@ -272,11 +275,15 @@ export default function Home() {
           <SectionHeading eyebrow="Courses" title="Learn by shipping real apps">
             Every course is a complete project, recorded start to finish, with source code for each lesson.
           </SectionHeading>
-          <div className="reveal grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {courses.slice(0, 3).map((c) => (
-              <CourseCard key={c.slug} course={c} />
-            ))}
-          </div>
+          {courses.length ? (
+            <div className="reveal grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {courses.slice(0, 3).map((c) => (
+                <CourseCard key={c.slug} course={c} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-sm text-muted-foreground">The first courses are on their way. Check back soon.</p>
+          )}
         </section>
 
         <section id="reviews" className="relative mx-auto max-w-6xl scroll-mt-8 px-4 py-24 sm:px-6">
