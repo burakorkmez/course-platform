@@ -20,8 +20,10 @@ export async function checkout(plan: Plan, courseSlug?: string) {
   // Checked again here, not just by which buttons render: nobody pays twice for what they already have.
   if (!productId || !buyOptions(entitlements, course?.id).includes(plan)) redirect(back)
 
-  // Next rejects server actions whose Origin doesn't match the host, so this is our own origin.
-  const origin = (await headers()).get("origin")!
+  // Next rejects server actions whose Origin doesn't match the host, so this is our own origin. Next lets requests
+  // without one through (old browsers, scripts), so rebuild it from the host Next compared against.
+  const h = await headers()
+  const origin = h.get("origin") ?? `${h.get("x-forwarded-proto") ?? "https"}://${h.get("x-forwarded-host") ?? h.get("host")}`
   const success = new URL("/checkout/success", origin)
   success.searchParams.set("plan", plan)
   if (course) success.searchParams.set("course", course.slug)

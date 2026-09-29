@@ -5,6 +5,7 @@ import { refresh } from "next/cache"
 import { redirect } from "next/navigation"
 import { and, eq, ne, sql } from "drizzle-orm"
 import { z } from "zod"
+import { errors } from "@polar-sh/sdk/2026-10"
 import { requireAdmin } from "@/lib/auth/server"
 import { db } from "@/lib/db"
 import { courseLevel, courseStatus, courses, lessons, sections } from "@/lib/db/schema"
@@ -97,7 +98,11 @@ export async function updateCourse(courseId: number, _: FormState, formData: For
   // A typo here would leave buyers paying without getting access (the webhook can't match the product), so check it now.
   const productId = input.data.polarProductId
   if (productId) {
-    const product = await polar.products.get(productId).catch(() => null)
+    // 404 is an unknown id, 422 a malformed one; anything else (network, auth, rate limit) is ours to surface.
+    const product = await polar.products.get(productId).catch((e) => {
+      if (e instanceof errors.ResourceNotFound || e instanceof errors.HTTPValidationError) return null
+      throw e
+    })
     if (!product || product.is_recurring || productId === MONTHLY_PRODUCT_ID || productId === LIFETIME_PRODUCT_ID)
       return { error: "That isn't a one-time course product in Polar. Copy its ID from the product's page." }
   }
