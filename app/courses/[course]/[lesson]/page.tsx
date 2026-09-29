@@ -2,15 +2,18 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { Check, ChevronLeft, ChevronRight, Clapperboard, Lock, PlayCircle, Search } from "lucide-react"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import { buttonVariants } from "@/components/ui/button"
+import { BuyButton } from "@/components/buy-button"
 import { SubmitButton } from "@/components/submit-button"
 import { CourseThumbnail } from "@/components/course-card"
 import { Curriculum } from "@/components/curriculum"
 import { ProgressBar, ProgressRing } from "@/components/progress"
 import { Logo } from "@/components/site-header"
 import { UserButton } from "@/components/user-button"
-import { PRICE, getCourse } from "@/lib/catalog"
+import { getCourse } from "@/lib/catalog"
 import { publicUrl } from "@/lib/imagekit"
+import { getPrices } from "@/lib/polar"
 import { saveProgress } from "../../actions"
 import { VideoPlayer } from "../../video-player"
 
@@ -35,6 +38,10 @@ export default async function LessonPage({ params }: PageProps<"/courses/[course
   const prev = lessons[lesson.index - 1]
   const next = lessons[lesson.index + 1]
   const lessonHref = (slug: string) => `/courses/${course.slug}/${slug}`
+  // Without a linked Polar product the course comes with All Access only.
+  const forSale = course.status === "published" && !!course.productId
+  const price = course.productId ? (await getPrices())[course.productId]?.label : undefined
+  const buyLabel = price ? `Buy course · ${price}` : "Buy course"
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -108,10 +115,14 @@ export default async function LessonPage({ params }: PageProps<"/courses/[course
                       </span>
                       <h2 className="mt-4 font-heading text-xl font-semibold">This lesson is locked</h2>
                       <p className="mt-2 hidden text-sm text-muted-foreground sm:block">
-                        Buy the course to watch every lesson, or start with the free previews.
+                        {forSale ? "Buy the course" : "Get All Access"} to watch every lesson, or start with the free previews.
                       </p>
                       <div className="mt-5 flex justify-center gap-3">
-                        <Button size="lg">Buy course · {PRICE}</Button>
+                        {forSale && (
+                          <BuyButton plan="course" course={course.slug} size="lg">
+                            {buyLabel}
+                          </BuyButton>
+                        )}
                         <Link href="/#pricing" className={buttonVariants({ variant: "outline", size: "lg" })}>
                           See plans
                         </Link>
@@ -200,11 +211,21 @@ export default async function LessonPage({ params }: PageProps<"/courses/[course
             <section className="rounded-2xl border bg-card p-5">
               <h2 className="font-heading text-lg font-semibold">Unlock the full course</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                All {progress.total} lessons, the source code and lifetime access for a one-time {PRICE}.
+                {forSale
+                  ? `All ${progress.total} lessons, the source code and lifetime access${price ? ` for a one-time ${price}` : ""}.`
+                  : `All ${progress.total} lessons and the source code come with All Access, along with every other course.`}
               </p>
-              <Button size="lg" className="mt-4 w-full">
-                Buy course · {PRICE}
-              </Button>
+              <div className="mt-4">
+                {forSale ? (
+                  <BuyButton plan="course" course={course.slug} size="lg" className="w-full">
+                    {buyLabel}
+                  </BuyButton>
+                ) : (
+                  <Link href="/#pricing" className={cn(buttonVariants({ size: "lg" }), "w-full")}>
+                    See plans
+                  </Link>
+                )}
+              </div>
             </section>
           )}
 

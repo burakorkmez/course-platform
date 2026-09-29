@@ -4,8 +4,9 @@ import Link from "next/link"
 import { ArrowRight, Check, Download, Lock, Play, PlayCircle, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { buttonVariants } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { BuyButton } from "@/components/buy-button"
 import { CourseCard } from "@/components/course-card"
 import { HeroVideo } from "@/components/hero-video"
 import { ProgressRing } from "@/components/progress"
@@ -13,39 +14,37 @@ import { SiteFooter } from "@/components/site-footer"
 import { SiteHeader } from "@/components/site-header"
 import { Stars, Testimonials, avatars } from "@/components/testimonials"
 import preview from "@/public/app-preview.jpg"
-import { getCourses } from "@/lib/catalog"
+import { buyOptions, hasLifetime, isSubscribed } from "@/lib/access"
+import { getCourses, getViewer } from "@/lib/catalog"
+import { LIFETIME_PRODUCT_ID, MONTHLY_PRODUCT_ID, getPrices } from "@/lib/polar"
 
-// ponytail: static until Phase 5 reads prices from Polar
+// Prices come from the Polar products; the course plan shows the cheapest course.
 const plans = [
   {
     name: "Single course",
-    price: "$25",
     period: "one-time",
     description: "Own one course, forever.",
     features: ["Lifetime access to one course", "All lessons and resources", "Progress tracking", "Future course updates"],
     cta: "Browse courses",
-    href: "/#courses",
   },
   {
     name: "Monthly",
-    price: "$50",
+    plan: "monthly",
     period: "/month",
     description: "Every course while you're subscribed.",
     features: ["Every course on the platform", "New courses as they launch", "Progress tracking", "Cancel anytime"],
     cta: "Subscribe",
-    href: "/sign-in",
   },
   {
     name: "Lifetime",
-    price: "$250",
+    plan: "lifetime",
     period: "one-time",
     description: "Every course, current and future.",
     features: ["Every course, forever", "All future courses included", "Progress tracking", "One payment, no subscription"],
     cta: "Get lifetime access",
-    href: "/sign-in",
     featured: true,
   },
-]
+] as const
 
 const lessons = [
   { title: "Setting up your environment", time: "08:12", state: "done" },
@@ -80,7 +79,16 @@ function Feature({ title, description, className, children }: { title: string; d
 }
 
 export default async function Home() {
-  const courses = await getCourses()
+  const [courses, { entitlements }, prices] = await Promise.all([getCourses(), getViewer(), getPrices()])
+  // What this visitor can still buy: nothing with Lifetime, the upgrade with Monthly, both plans otherwise.
+  const options = buyOptions(entitlements)
+  const current = hasLifetime(entitlements) ? "lifetime" : isSubscribed(entitlements) ? "monthly" : null
+  const coursePrices = courses.flatMap((c) => (c.productId && prices[c.productId]) || []).sort((a, b) => a.cents - b.cents)
+  const price = {
+    "Single course": coursePrices[0] && `${coursePrices[0].cents < coursePrices.at(-1)!.cents ? "From " : ""}${coursePrices[0].label}`,
+    Monthly: MONTHLY_PRODUCT_ID && prices[MONTHLY_PRODUCT_ID]?.label,
+    Lifetime: LIFETIME_PRODUCT_ID && prices[LIFETIME_PRODUCT_ID]?.label,
+  }
   // The first free preview lesson on the platform, for the "Watch before you buy" tile.
   const freePreview = courses.flatMap((c) => c.lessons.filter((l) => l.free && l.videoPath).map((l) => `/courses/${c.slug}/${l.slug}`))[0] ?? "/courses"
   return (
@@ -307,23 +315,25 @@ export default async function Home() {
                 key={p.name}
                 className={cn(
                   "[--card-spacing:--spacing(6)]",
-                  p.featured && "ring-primary/50 shadow-[0_0_60px_-15px_var(--glow)]"
+                  "featured" in p && "ring-primary/50 shadow-[0_0_60px_-15px_var(--glow)]"
                 )}
               >
                 <CardHeader>
                   <CardTitle className="text-lg">{p.name}</CardTitle>
                   <CardDescription>{p.description}</CardDescription>
-                  {p.featured && (
+                  {"featured" in p && (
                     <CardAction>
                       <Badge>Best value</Badge>
                     </CardAction>
                   )}
                 </CardHeader>
                 <CardContent className="flex flex-col gap-6">
-                  <p className="flex items-baseline gap-1">
-                    <span className="font-heading text-4xl font-semibold tracking-tight">{p.price}</span>
-                    <span className="text-muted-foreground">{p.period}</span>
-                  </p>
+                  {price[p.name] && (
+                    <p className="flex items-baseline gap-1">
+                      <span className="font-heading text-4xl font-semibold tracking-tight">{price[p.name]}</span>
+                      <span className="text-muted-foreground">{p.period}</span>
+                    </p>
+                  )}
                   <ul className="flex flex-col gap-3">
                     {p.features.map((f) => (
                       <li key={f} className="flex items-center gap-2">
@@ -333,12 +343,19 @@ export default async function Home() {
                   </ul>
                 </CardContent>
                 <CardFooter>
-                  <Link
-                    href={p.href}
-                    className={cn(buttonVariants({ variant: p.featured ? "default" : "outline", size: "lg" }), "w-full")}
-                  >
-                    {p.cta}
-                  </Link>
+                  {!("plan" in p) ? (
+                    <Link href="/#courses" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "w-full")}>
+                      {p.cta}
+                    </Link>
+                  ) : options.includes(p.plan) ? (
+                    <BuyButton plan={p.plan} variant={"featured" in p ? "default" : "outline"} size="lg" className="w-full">
+                      {p.plan === "lifetime" && current === "monthly" ? "Upgrade to lifetime" : p.cta}
+                    </BuyButton>
+                  ) : (
+                    <Button variant="outline" size="lg" className="w-full" disabled>
+                      {current === p.plan ? "Your plan" : "Included in your plan"}
+                    </Button>
+                  )}
                 </CardFooter>
               </Card>
             ))}
