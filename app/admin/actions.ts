@@ -5,10 +5,12 @@ import { refresh } from "next/cache"
 import { redirect } from "next/navigation"
 import { and, eq, ne, sql } from "drizzle-orm"
 import { z } from "zod"
+import { errors } from "@polar-sh/sdk/2026-10"
 import { requireAdmin } from "@/lib/auth/server"
 import { db } from "@/lib/db"
 import { courseLevel, courseStatus, courses, lessons, sections } from "@/lib/db/schema"
 import { deleteFiles, uploadAuth } from "@/lib/imagekit"
+import { LIFETIME_PRODUCT_ID, MONTHLY_PRODUCT_ID, polar } from "@/lib/polar"
 
 // ponytail: the catalog (lib/catalog.ts) renders per request, so there's no cache to bust. Once it uses 'use cache', call updateTag('catalog') here.
 
@@ -93,6 +95,17 @@ export async function updateCourse(courseId: number, _: FormState, formData: For
   await requireAdmin()
   const input = courseInput.safeParse(Object.fromEntries(formData))
   if (!input.success) return { error: input.error.issues[0].message }
+  // A typo here would leave buyers paying without getting access (the webhook can't match the product), so check it now.
+  const productId = input.data.polarProductId
+  if (productId) {
+    // 404 is an unknown id, 422 a malformed one; anything else (network, auth, rate limit) is ours to surface.
+    const product = await polar.products.get(productId).catch((e) => {
+      if (e instanceof errors.ResourceNotFound || e instanceof errors.HTTPValidationError) return null
+      throw e
+    })
+    if (!product || product.is_recurring || productId === MONTHLY_PRODUCT_ID || productId === LIFETIME_PRODUCT_ID)
+      return { error: "That isn't a one-time course product in Polar. Copy its ID from the product's page." }
+  }
   try {
     await db.update(courses).set(input.data).where(eq(courses.id, courseId))
   } catch (e) {
@@ -122,7 +135,7 @@ export async function saveCourseMedia(courseId: number, kind: "thumbnail" | "tra
   refresh()
 }
 
-// ponytail: purchases don't exist yet, so nothing blocks this. Phase 4's RESTRICT FK will; the UI then offers Archive.
+// A course someone bought can't be deleted: the page offers Archive instead, and purchases' RESTRICT FK blocks it here too.
 export async function deleteCourse(courseId: number) {
   await requireAdmin()
   const course = await db.query.courses.findFirst({

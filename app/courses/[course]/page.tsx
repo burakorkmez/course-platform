@@ -4,15 +4,17 @@ import { notFound } from "next/navigation"
 import { ArrowRight, Check, ChevronRight, Clock, Play, PlayCircle, RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { BuyButton } from "@/components/buy-button"
 import { CourseThumbnail } from "@/components/course-card"
 import { Curriculum } from "@/components/curriculum"
 import { ProgressRing } from "@/components/progress"
 import { SiteFooter } from "@/components/site-footer"
 import { SiteHeader } from "@/components/site-header"
-import { PRICE, getCourse, resumeLesson } from "@/lib/catalog"
+import { getCourse, resumeLesson } from "@/lib/catalog"
 import { publicUrl } from "@/lib/imagekit"
+import { getPrices } from "@/lib/polar"
 import { VideoPlayer } from "../video-player"
 
 export async function generateMetadata({ params }: PageProps<"/courses/[course]">): Promise<Metadata> {
@@ -28,6 +30,9 @@ export default async function CoursePage({ params }: PageProps<"/courses/[course
   // The first lesson this visitor can watch: a free preview (or anything, for the admin).
   const preview = course.lessons.find((l) => !l.locked)
   const resume = resumeLesson(course)
+  // Without a linked Polar product the course comes with All Access only.
+  const forSale = course.status === "published" && !!course.productId
+  const price = course.productId ? (await getPrices())[course.productId]?.label : undefined
 
   return (
     <div className="relative isolate flex flex-1 flex-col">
@@ -158,15 +163,27 @@ export default async function CoursePage({ params }: PageProps<"/courses/[course
             ) : (
               <>
                 <CardHeader>
-                  <p className="flex items-baseline gap-1">
-                    <span className="font-heading text-4xl font-semibold tracking-tight">{PRICE}</span>
-                    <span className="text-muted-foreground">one-time</span>
-                  </p>
+                  {forSale ? (
+                    price && (
+                      <p className="flex items-baseline gap-1">
+                        <span className="font-heading text-4xl font-semibold tracking-tight">{price}</span>
+                        <span className="text-muted-foreground">one-time</span>
+                      </p>
+                    )
+                  ) : (
+                    <CardTitle className="text-lg">Included with All Access</CardTitle>
+                  )}
                 </CardHeader>
                 <CardContent className="flex flex-col gap-3">
-                  <Button size="lg" className="w-full">
-                    Buy course
-                  </Button>
+                  {forSale ? (
+                    <BuyButton plan="course" course={course.slug} size="lg" className="w-full">
+                      Buy course
+                    </BuyButton>
+                  ) : (
+                    <Link href="/#pricing" className={cn(buttonVariants({ size: "lg" }), "w-full")}>
+                      See plans
+                    </Link>
+                  )}
                   {preview && (
                     <Link
                       href={`/courses/${course.slug}/${preview.slug}`}

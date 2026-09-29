@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { LogOut } from "lucide-react"
+import { CreditCard, LogOut } from "lucide-react"
 import { authClient } from "@/lib/auth/client"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { buttonVariants } from "@/components/ui/button"
@@ -53,6 +53,10 @@ export function UserButton() {
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
+        {/* Polar's customer portal: receipts, invoices and cancelling the monthly plan. */}
+        <DropdownMenuItem render={<a href="/api/portal" />}>
+          <CreditCard /> Billing
+        </DropdownMenuItem>
         <DropdownMenuItem
           onClick={async () => {
             await authClient.signOut()

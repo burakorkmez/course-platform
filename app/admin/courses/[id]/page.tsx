@@ -5,7 +5,7 @@ import { Image } from "@imagekit/next"
 import { ChevronRight, Film, ImageIcon, Plus, Trash2 } from "lucide-react"
 import { requireAdmin } from "@/lib/auth/server"
 import { db } from "@/lib/db"
-import { courseLevel, courseStatus, courses, lessons, sections } from "@/lib/db/schema"
+import { courseLevel, courseStatus, courses, lessons, purchases, sections } from "@/lib/db/schema"
 import { publicUrl } from "@/lib/imagekit"
 import { formatDuration } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
@@ -39,6 +39,7 @@ export default async function CourseEditorPage({ params }: PageProps<"/admin/cou
   if (!course) notFound()
 
   const allLessons = course.sections.flatMap((s) => s.lessons)
+  const sold = await db.$count(purchases, eq(purchases.courseId, course.id))
 
   return (
     <>
@@ -168,17 +169,26 @@ export default async function CourseEditorPage({ params }: PageProps<"/admin/cou
 
           <section className="rounded-2xl border border-destructive/20 bg-card p-5">
             <h2 className="font-heading text-lg font-semibold">Delete course</h2>
-            <p className="mt-2 mb-4 text-sm text-muted-foreground">
-              Removes every section, lesson and uploaded file. To hide a course but keep it for its students, set it to Archived instead.
-            </p>
-            <DeleteButton
-              action={deleteCourse.bind(null, course.id)}
-              confirmText={`Delete "${course.title}" with all ${allLessons.length} lessons and their videos? This can't be undone.`}
-              size="lg"
-              className="w-full"
-            >
-              <Trash2 data-icon="inline-start" /> Delete course
-            </DeleteButton>
+            {sold ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                {sold === 1 ? "Someone has" : `${sold} people have`} bought this course, so it can&apos;t be deleted. To take it off the site, set its
+                status to Archived: it disappears from the catalog but stays watchable for everyone who has access.
+              </p>
+            ) : (
+              <>
+                <p className="mt-2 mb-4 text-sm text-muted-foreground">
+                  Removes every section, lesson and uploaded file. To hide a course but keep it for its students, set it to Archived instead.
+                </p>
+                <DeleteButton
+                  action={deleteCourse.bind(null, course.id)}
+                  confirmText={`Delete "${course.title}" with all ${allLessons.length} lessons and their videos? This can't be undone.`}
+                  size="lg"
+                  className="w-full"
+                >
+                  <Trash2 data-icon="inline-start" /> Delete course
+                </DeleteButton>
+              </>
+            )}
           </section>
         </div>
       </div>
