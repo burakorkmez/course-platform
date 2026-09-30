@@ -38,7 +38,9 @@ export function SocialSignIn({ next }: { next: string }) {
     setError(null)
     // On success the browser is redirected to the provider, so only the error path returns here.
     // A network failure rejects instead of returning an error, so fold it into the same path.
-    const { error } = await authClient.signIn.social({ provider, callbackURL: next }).catch((error: Error) => ({ error }))
+    // Absolute, because Neon Auth rejects relative callbacks with a #hash or %-escape (e.g. "/#pricing").
+    const callbackURL = new URL(next, location.origin).href
+    const { error } = await authClient.signIn.social({ provider, callbackURL }).catch((error: Error) => ({ error }))
     if (error) {
       setError(error.message ?? "Something went wrong. Please try again.")
       setPending(null)
