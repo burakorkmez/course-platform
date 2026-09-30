@@ -63,7 +63,8 @@ export async function checkout(plan: Plan, courseSlug?: string) {
       external_customer_id: user.id,
       customer_email: user.email,
       customer_name: user.name,
-      success_url: success.href,
+      // Polar fills in {CHECKOUT_ID} so the success page can check the payment. Appended raw: searchParams would escape the braces.
+      success_url: `${success.href}&checkout_id={CHECKOUT_ID}`,
       return_url: new URL(back, origin).href,
     })
     // checkout_id matches the order's checkout in Polar; pair it with the "Polar webhook processed" log for the same user.

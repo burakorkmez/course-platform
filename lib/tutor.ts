@@ -47,10 +47,10 @@ export function readLesson(course: Course, slug: string) {
 }
 
 // The course as everyone who can read a lesson's discussion sees it. A free preview's discussion is open to anyone, so
-// an answer posted there may only draw on the free previews, whoever asked for it.
+// an answer posted there may only draw on the free previews, whoever asked for it. Nor on the asker's progress.
 export const discussionView = (course: Course, lesson: Lesson): Course => ({
   ...course,
-  lessons: course.lessons.map((l) => ({ ...l, locked: l.locked || (lesson.free && !l.free) })),
+  lessons: course.lessons.map((l) => ({ ...l, done: false, locked: l.locked || (lesson.free && !l.free) })),
 })
 
 // agent names it in Sentry, where its runs show up as "invoke_agent <agent>": the chat, or answers in the discussion.

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { SubmitButton } from "@/components/submit-button"
 
-// A question or reply box for the lesson's discussion. The form clears itself once the comment is posted.
+// A question or reply box for the lesson's discussion. It clears once the comment is posted, and keeps the text if posting fails.
 export function CommentForm({
   action,
   placeholder,
@@ -23,6 +23,8 @@ export function CommentForm({
   onDone?: () => void
 }) {
   const [failed, setFailed] = useState(false)
+  // Controlled, so React's reset after the action leaves the text alone: it only clears once the comment is posted.
+  const [body, setBody] = useState("")
   return (
     <form
       className="min-w-0 flex-1"
@@ -30,6 +32,7 @@ export function CommentForm({
         setFailed(false)
         try {
           await action(formData)
+          setBody("")
           onDone?.()
         } catch {
           setFailed(true)
@@ -38,6 +41,8 @@ export function CommentForm({
     >
       <Textarea
         name="body"
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
         required
         maxLength={2000}
         placeholder={placeholder}

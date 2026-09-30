@@ -38,6 +38,11 @@ describe("tutor", () => {
     expect(readLesson(discussionView(owned, paid), "paid")).toMatchObject({ notes: "paid notes" })
   })
 
+  it("keeps the asker's progress out of a public answer", () => {
+    const done = { ...lesson("intro", false), done: true }
+    expect(discussionView(course(done), done).lessons[0]).toMatchObject({ done: false, locked: false })
+  })
+
   it("spends AI calls up to the daily limit, and starts over the next day", async () => {
     const user = "5f0c7c2e-8a7b-4a53-9a4f-0c1d2e3f4a5b"
     // Neon Auth's table, which the migrations reference but don't create.
