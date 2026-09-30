@@ -19,6 +19,13 @@ const columns = [
       { href: "/api/portal", label: "Billing" },
     ],
   },
+  {
+    title: "Legal",
+    links: [
+      { href: "/terms-of-service", label: "Terms of Service" },
+      { href: "/privacy", label: "Privacy Policy" },
+    ],
+  },
 ]
 
 export function SiteFooter() {
@@ -34,7 +41,7 @@ export function SiteFooter() {
           <Logo />
           <p className="mt-4 max-w-xs text-base text-muted-foreground">Project-based courses for developers who ship.</p>
         </div>
-        <nav aria-label="Footer" className="grid grid-cols-2 gap-16">
+        <nav aria-label="Footer" className="grid grid-cols-2 gap-x-16 gap-y-10 sm:grid-cols-3">
           {columns.map((c) => (
             <div key={c.title}>
               <h3 className="font-heading text-sm font-medium">{c.title}</h3>

@@ -111,17 +111,21 @@ Borders are always the 1px hairline `border` token.
 
 **Feature card (bento)**: `rounded-2xl border bg-card` with the title and description on top and a small mock of the real UI at the bottom (curriculum rows, progress ring, code panel, video frame). Grid: `md:grid-cols-2 lg:grid-cols-3`, with wide cards on `md:col-span-2`. Give a mock `flex-1` when it should fill the leftover height.
 
+**AI tutor spotlight** (`#tutor`, after Features): a `lg:grid-cols-2` split. On the left: eyebrow, h2, lead and a `Check` list. On the right: a square `rounded-3xl border bg-card` frame with the `tutor-bulb` video, and a glass mock of the lesson page's "Ask the tutor" panel (`bg-card/80 backdrop-blur`) pulled over its bottom edge with `-mt-28`.
+
+**How it works** (`#how-it-works`, before Courses): the full-bleed `path-scene` video, with the eyebrow, h2 and three numbered steps on the left, joined by a hairline fading from `primary/40`. From `lg` the section's height is the video's own aspect (`clamp(36rem,56.25vw,64rem)`), so the mascot and the stairs stay to the right of the text. A short `mask-t-from-92%` hides the seam without dimming the star. Below `lg` the video becomes an `h-96` strip under the steps, like the footer.
+
 **Closing CTA**: a `rounded-3xl border bg-card` card with the sunrise globe video behind it (`<HeroVideo name="cta-globe" className="top-1/4 mask-t-from-60%" />`: pushed down a quarter so the sunrise lands under the buttons, its top edge masked into the card), an h2 with one `text-gradient` phrase, and a default + outline button pair.
 
 **Avatar stack**: `flex -space-x-2` of `size-8 rounded-full ring-2 ring-background` images, next to `<Stars />` and a one-line caption.
 
-**SiteHeader / SiteFooter / Logo**: the marketing shell. The logo is a 4-point star in `text-primary` with a glow drop-shadow, next to an uppercase wordmark.
+**SiteHeader / SiteFooter / Logo**: the marketing shell. The logo is a 4-point star in `text-primary` with a glow drop-shadow, next to an uppercase wordmark. The star is sized in `em`, so `<Logo className="text-lg" />` (the navbar) scales both.
 
 **SectionHeading** (in `app/page.tsx`): eyebrow + h2 + lead. Move it to `components/` the first time a second page needs it.
 
 ## Signature effects (in `globals.css`)
 
-- **Hero globe video** (`public/hero-globe.mp4` + `public/hero-globe.jpg` poster): a full-screen, muted, looping `<video>` behind the hero content, `absolute inset-0 -z-10 object-cover`. The hero section uses `-mt-18 min-h-svh` so it slides under the header. Its `<source>` has `media="(prefers-reduced-motion: no-preference)"`, so reduced-motion users get the still poster and never download the video. It lives in `components/hero-video.tsx` (`<HeroVideo name="hero-globe" />` plays `public/<name>.mp4`) with a round outline pause button (bottom right, hidden under reduced motion; the hero lifts it with `buttonClassName="bottom-20"`). On top go a fixed-size dark radial scrim behind the text (`ellipse 38rem 24rem`, `rgb(5 6 15 / .85)` fading out) and a `from-background` fade over the bottom third so the globe melts into the page. Text on the video is one step brighter than usual (`text-foreground/80` for the lead instead of `text-muted-foreground`). The product preview overlaps the fade with `-mt-16`.
+- **Hero globe video** (`public/hero-globe.mp4` + `public/hero-globe.jpg` poster): a full-screen, muted, looping `<video>` behind the hero content, `absolute inset-0 -z-10 object-cover`. The hero section uses `-mt-18 min-h-svh` so it slides under the header. Its `<source>` has `media="(prefers-reduced-motion: no-preference)"`, so reduced-motion users get the still poster and never download the video. It lives in `components/hero-video.tsx` (`<HeroVideo name="hero-globe" />` plays `public/<name>.mp4`). The landing page videos have no pause button; reduced-motion users get the poster instead. On top go a fixed-size dark radial scrim behind the text (`ellipse 38rem 24rem`, `rgb(5 6 15 / .85)` fading out) and a `from-background` fade over the bottom third so the globe melts into the page. Text on the video is one step brighter than usual (`text-foreground/80` for the lead instead of `text-muted-foreground`). The product preview overlaps the fade with `-mt-16`.
 - `glow-planet`: the dark disc with the glowing rim, in CSS. Give it a width and a position; checkout success uses it, and it's the cheap way to echo the globe on pages without video (checkout success, empty states).
 - `text-gradient`: a lavender to periwinkle gradient for the accent words in a heading.
 - Media frame: `rounded-2xl border bg-card/60 p-2`, with the frame glow above and a `bg-linear-to-t from-background` fade over the bottom third.
@@ -151,6 +155,10 @@ All images are AI-generated in two styles that match the palette. Generate new o
 - **Footer scene** (`public/footer-scene.mp4` + `.jpg`, source still `design/footer-scene.png`): the same pipeline, 16:9, from a generated still of a frosted-glass cube-head dev lounging on a beanbag with a laptop, bottom-left, over navy dunes. `SiteFooter` plays it full-bleed with `object-bottom-left`; from `md` its height is `clamp(36rem,50vw,60rem)` so the character keeps its spot beside the text, and on phones the video becomes a `h-104` strip under the links.
 
 - **Sign-in scene** (`public/sign-in-scene.mp4` + `.jpg`): the same pipeline, 1:1, starting from a generated still of the brand star rising over a city-lit planet with an orbital ring.
+
+- **Path scene** (`public/path-scene.mp4` + `.jpg`, source still `design/path-scene.png`), 16:9: the footer's cube-head dev stands at the foot of floating frosted-glass steps that rise over the navy dunes to the brand star. It's the start of the journey, and the footer shows the end.
+- **Tutor bulb** (`public/tutor-bulb.mp4` + `.jpg`, source still `design/tutor-bulb.png`), 1:1: a frosted-glass lightbulb with the brand star glowing inside, over a glossy reflection.
+- Both stills come from `gpt_image_2_5` (high, 2k). Both videos are Kling 3.0 `pro` with the still as **both** `start_image` and `end_image`, which gives a natural loop. A start frame alone let Kling add fog, or spin the star edge-on. Because the ends already match, the crossfade shrinks to 0.5s: `trim=start=0.5`, `trim=end=0.5`, `xfade=duration=0.5:offset=<duration-1>`. A 2s fade ghosts a moving subject. The prompts ask for a locked camera, slow ambient motion, and "no fog, no smoke, no new objects".
 
 Use `next/image` everywhere. Always pass `sizes` with `fill`, and use `alt=""` when a caption next to the image already names it.
 

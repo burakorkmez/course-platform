@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowRight, Check, Download, Lock, Play, PlayCircle, Sparkles } from "lucide-react"
+import { ArrowRight, ArrowUp, BookOpen, Check, Download, Lock, Play, PlayCircle, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -53,6 +53,18 @@ const lessons = [
   { title: "Building the UI", time: "18:45", state: "locked" },
 ] as const
 
+const steps = [
+  { title: "Watch a free lesson", description: "Every course opens with free previews. No account, no card." },
+  { title: "Build along", description: "Code each step with the video, with that lesson's source code one click away." },
+  { title: "Ship your project", description: "Finish with a complete app of your own, not a folder of snippets." },
+]
+
+const tutorPoints = [
+  "Knows the lesson you're on and can read the rest of the course",
+  "Answers questions in the lesson discussion too",
+  "Sits beside the video, so you never lose your place",
+]
+
 // Staggered fade-up for the hero on first paint.
 const rise = "motion-safe:animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out fill-mode-both"
 
@@ -98,8 +110,7 @@ export default async function Home() {
       <main className="flex-1">
         {/* -mt-18 slides the hero under the h-18 header so the globe fills the whole first screen */}
         <section className="relative isolate -mt-18 flex min-h-svh flex-col items-center justify-center px-4 pt-32 pb-24 text-center sm:px-6">
-          {/* bottom-20 clears the product preview, which overlaps the hero by 4rem */}
-          <HeroVideo name="hero-globe" buttonClassName="bottom-20" />
+          <HeroVideo name="hero-globe" />
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_38rem_24rem_at_50%_52%,rgb(5_6_15/0.85)_35%,rgb(5_6_15/0.55)_65%,transparent)]"
@@ -280,7 +291,87 @@ export default async function Home() {
           </div>
         </section>
 
-        <section id="courses" className="mx-auto max-w-6xl scroll-mt-8 px-4 py-24 sm:px-6">
+        <section id="tutor" className="mx-auto grid max-w-6xl scroll-mt-8 grid-cols-1 items-center gap-12 px-4 py-24 sm:px-6 lg:grid-cols-2 lg:gap-16">
+          <div className="reveal">
+            <p className="mb-3 text-sm font-medium text-primary">AI tutor</p>
+            <h2 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
+              Stuck? <span className="text-gradient">Just ask</span>
+            </h2>
+            <p className="mt-4 max-w-md text-muted-foreground">
+              Every lesson comes with a tutor that has read its notes, so its answers are about the code on your screen.
+            </p>
+            <ul className="mt-8 flex flex-col gap-3">
+              {tutorPoints.map((p) => (
+                <li key={p} className="flex gap-2">
+                  <Check className="mt-1 size-4 shrink-0 text-primary" /> {p}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="reveal">
+            <div className="relative isolate aspect-square overflow-hidden rounded-3xl border bg-card">
+              <HeroVideo name="tutor-bulb" />
+            </div>
+            {/* A mock of the lesson page's "Ask the tutor" panel, pulled up over the bottom of the video. */}
+            <div className="relative mx-4 -mt-28 rounded-2xl border bg-card/80 text-sm backdrop-blur sm:mx-10">
+              <p className="flex items-center gap-2 border-b px-4 py-3 font-heading font-medium">
+                <Sparkles className="size-4 text-primary" /> Ask the tutor
+              </p>
+              <div className="flex flex-col gap-3 p-4">
+                <p className="ml-8 self-end rounded-xl bg-primary/10 px-3 py-2">Why does requireUser() redirect instead of throwing?</p>
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <BookOpen className="size-3.5 text-primary" /> Read “Setting up authentication”
+                </p>
+                <p className="leading-relaxed text-foreground/90">
+                  So a signed-out visitor lands on <code className="font-mono text-xs text-primary">/sign-in</code> instead of an error
+                  page. Every protected page calls it first and gets the user back.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 border-t p-3">
+                <span className="flex h-9 flex-1 items-center rounded-lg border border-input px-3 text-muted-foreground">Ask about this lesson…</span>
+                <span className="grid size-9 place-items-center rounded-lg bg-primary text-primary-foreground">
+                  <ArrowUp className="size-4" />
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* From lg up the height tracks the width, so the character and the stairs keep their spot beside the text. */}
+        <section id="how-it-works" className="relative isolate flex scroll-mt-8 flex-col lg:h-[clamp(36rem,56.25vw,64rem)] lg:justify-center">
+          {/* The scene sits right of the text. Below lg it becomes a strip under the steps so it never sits behind text. */}
+          <HeroVideo
+            name="path-scene"
+            className="object-[80%_50%] mask-t-from-92% mask-b-from-75% max-lg:top-auto max-lg:h-96 max-lg:mask-t-from-85%"
+          />
+          <div className="reveal mx-auto w-full max-w-6xl px-4 pt-24 pb-96 sm:px-6 lg:py-0">
+            <div className="max-w-md">
+              <p className="mb-3 text-sm font-medium text-primary">How it works</p>
+              <h2 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
+                From first lesson to <span className="text-gradient">shipped app</span>
+              </h2>
+              <ol className="mt-10 flex flex-col gap-8">
+                {steps.map((s, i) => (
+                  <li key={s.title} className="relative flex gap-4">
+                    {/* A hairline down to the next step's number, like the stairs in the scene. */}
+                    {i < steps.length - 1 && (
+                      <span aria-hidden className="pointer-events-none absolute top-10 -bottom-6 left-4 w-px bg-linear-to-b from-primary/40 to-transparent" />
+                    )}
+                    <span className="grid size-8 shrink-0 place-items-center rounded-full border border-primary/30 bg-primary/10 font-mono text-xs text-primary backdrop-blur">
+                      {i + 1}
+                    </span>
+                    <div className="pt-1">
+                      <h3 className="font-heading text-lg font-medium tracking-tight">{s.title}</h3>
+                      <p className="mt-1 text-sm text-foreground/70">{s.description}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        </section>
+
+        <section id="courses"className="mx-auto max-w-6xl scroll-mt-8 px-4 py-24 sm:px-6">
           <SectionHeading eyebrow="Courses" title="Learn by shipping real apps">
             Every course is a complete project, recorded start to finish, with source code for each lesson.
           </SectionHeading>
