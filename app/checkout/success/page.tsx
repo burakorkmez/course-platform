@@ -27,7 +27,7 @@ export default async function CheckoutSuccessPage({ searchParams }: PageProps<"/
       <SiteHeader />
       <main className="relative mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center px-4 pt-12 pb-72 text-center sm:px-6">
         <div aria-hidden className="glow-planet pointer-events-none absolute top-[62%] left-1/2 -z-10 w-176 -translate-x-1/2 sm:w-272" />
-        <WaitForAccess />
+        <WaitForAccess plan={String(plan ?? "")} course={typeof slug === "string" && slug ? slug : undefined} />
       </main>
     </div>
   )

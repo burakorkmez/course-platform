@@ -13,6 +13,8 @@ vi.mock("@/lib/db", async () => {
   return { db: drizzle({ client: new PGlite(), schema: await import("@/lib/db/schema"), casing: "snake_case" }) }
 })
 const cancel = vi.hoisted(() => vi.fn())
+const sentry = vi.hoisted(() => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }, captureException: vi.fn(), setUser: vi.fn() }))
+vi.mock("@sentry/nextjs", () => sentry)
 vi.mock("@/lib/polar", () => ({
   polar: { subscriptions: { update: cancel } },
   MONTHLY_PRODUCT_ID: "prod_monthly",
@@ -61,6 +63,7 @@ beforeEach(async () => {
   await db.delete(subscriptions)
   await db.delete(webhookEvents)
   cancel.mockReset()
+  vi.clearAllMocks()
 })
 
 describe("Polar webhook", () => {
@@ -91,6 +94,7 @@ describe("Polar webhook", () => {
     await send(order("refunded", 2))
     await send(order("paid", 1))
     expect((await db.select().from(purchases))[0].status).toBe("refunded")
+    expect(sentry.logger.info).toHaveBeenLastCalledWith("Polar webhook processed", expect.objectContaining({ outcome: "stale", order_status: "paid" }))
   })
 
   it("ignores an older subscription event that arrives late", async () => {
@@ -123,11 +127,11 @@ describe("Polar webhook", () => {
   })
 
   it("acknowledges an order for an unlinked product without recording it, so it can be redelivered", async () => {
-    const log = vi.spyOn(console, "error").mockImplementation(() => {})
     await expect(send(order("paid", 1, "prod_unknown"))).resolves.toBeUndefined()
     expect(await db.select().from(purchases)).toEqual([])
     expect(await db.select().from(webhookEvents)).toEqual([])
-    expect(log).toHaveBeenCalledOnce()
-    log.mockRestore()
+    // Someone paid and got nothing: it has to reach Sentry as an issue (which alerts), not just a log line.
+    expect(sentry.captureException).toHaveBeenCalledOnce()
+    expect(sentry.logger.error).toHaveBeenCalledWith("Polar webhook not applied", expect.objectContaining({ event_type: "order.updated" }))
   })
 })

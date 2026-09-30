@@ -4,10 +4,11 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
+import * as Sentry from "@sentry/nextjs"
 import { Button, buttonVariants } from "@/components/ui/button"
 
 // Re-renders the server page every 2s; it redirects as soon as the webhook has granted access. Gives up after a minute.
-export function WaitForAccess() {
+export function WaitForAccess({ plan, course }: { plan: string; course?: string }) {
   const router = useRouter()
   const [waiting, setWaiting] = useState(true)
 
@@ -18,9 +19,14 @@ export function WaitForAccess() {
       if (Date.now() - started < 60_000) return router.refresh()
       clearInterval(timer)
       setWaiting(false)
+      // Paid, and a minute later still no access: the webhook failed or hasn't arrived. The worst thing that can happen
+      // to a customer, so it's an issue (alerts, and keeps the replay), not just a log. Their user.id leads to the
+      // "Checkout attempt" and "Polar webhook …" logs that say where it broke.
+      Sentry.logger.error("Access not granted after checkout", { plan, ...(course && { course_slug: course }), waited_s: 60 })
+      Sentry.captureMessage("Access not granted 60s after checkout", { level: "error", tags: { plan } })
     }, 2000)
     return () => clearInterval(timer)
-  }, [router, waiting])
+  }, [router, waiting, plan, course])
 
   return waiting ? (
     <div role="status">

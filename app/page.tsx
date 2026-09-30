@@ -98,7 +98,8 @@ export default async function Home() {
       <main className="flex-1">
         {/* -mt-18 slides the hero under the h-18 header so the globe fills the whole first screen */}
         <section className="relative isolate -mt-18 flex min-h-svh flex-col items-center justify-center px-4 pt-32 pb-24 text-center sm:px-6">
-          <HeroVideo />
+          {/* bottom-20 clears the product preview, which overlaps the hero by 4rem */}
+          <HeroVideo name="hero-globe" buttonClassName="bottom-20" />
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_38rem_24rem_at_50%_52%,rgb(5_6_15/0.85)_35%,rgb(5_6_15/0.55)_65%,transparent)]"
@@ -364,10 +365,8 @@ export default async function Home() {
 
         <section className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
           <div className="reveal relative isolate overflow-hidden rounded-3xl border bg-card px-6 pt-20 pb-56 text-center sm:pt-24 sm:pb-64">
-            <div
-              aria-hidden
-              className="glow-planet pointer-events-none absolute top-[68%] left-1/2 -z-10 w-176 -translate-x-1/2 sm:w-272"
-            />
+            {/* Pushed down a quarter so the sunrise lands under the buttons; the mask melts its top edge into the card. */}
+            <HeroVideo name="cta-globe" className="top-1/4 mask-t-from-60%" />
             <h2 className="mx-auto max-w-2xl font-heading text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">
               Your next project <span className="text-gradient">starts today</span>
             </h2>

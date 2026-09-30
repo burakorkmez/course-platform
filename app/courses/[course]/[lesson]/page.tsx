@@ -15,6 +15,8 @@ import { getCourse } from "@/lib/catalog"
 import { publicUrl } from "@/lib/imagekit"
 import { getPrices } from "@/lib/polar"
 import { saveProgress } from "../../actions"
+import { LessonComments } from "../../lesson-comments"
+import { LessonTutor } from "../../lesson-tutor"
 import { VideoPlayer } from "../../video-player"
 
 async function load(params: PageProps<"/courses/[course]/[lesson]">["params"]) {
@@ -190,6 +192,9 @@ export default async function LessonPage({ params }: PageProps<"/courses/[course
               </ul>
             </div>
           </section>
+
+          {/* The discussion unlocks with the lesson, like its notes */}
+          {!locked && <LessonComments courseSlug={course.slug} lessonSlug={lesson.slug} lessonId={lesson.id} />}
         </main>
 
         <aside className="flex flex-col gap-4 p-4 sm:p-6 xl:sticky xl:top-16 xl:h-[calc(100svh-4rem)] xl:overflow-y-auto xl:border-l">
@@ -250,6 +255,9 @@ export default async function LessonPage({ params }: PageProps<"/courses/[course
               <p className="mt-3 text-sm text-muted-foreground">That&apos;s the last lesson. Nice work finishing the course!</p>
             )}
           </section>
+
+          {/* Same rule as the video: the tutor needs a lesson this student can watch (and an account, since it costs) */}
+          {course.signedIn && !locked && <LessonTutor key={lesson.slug} courseSlug={course.slug} lessonSlug={lesson.slug} />}
         </aside>
       </div>
     </div>

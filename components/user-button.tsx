@@ -1,6 +1,8 @@
 "use client"
 
+import { useEffect } from "react"
 import Link from "next/link"
+import * as Sentry from "@sentry/nextjs"
 import { useRouter } from "next/navigation"
 import { CreditCard, LogOut } from "lucide-react"
 import { authClient } from "@/lib/auth/client"
@@ -21,6 +23,9 @@ import {
 export function UserButton() {
   const router = useRouter()
   const { data } = authClient.useSession()
+  // Tags browser errors, logs and replays with who's signed in (id only), so a support email can be traced to a session.
+  const userId = data?.user.id
+  useEffect(() => Sentry.setUser(userId ? { id: userId } : null), [userId])
 
   if (!data) {
     return (
@@ -41,13 +46,14 @@ export function UserButton() {
       <DropdownMenuTrigger aria-label="Account menu" className="rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
         <Avatar className="ring-1 ring-primary/30">
           <AvatarImage src={user.image ?? undefined} alt="" />
-          <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
+          <AvatarFallback data-sentry-mask>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         {/* Base UI requires a label to live inside a group */}
         <DropdownMenuGroup>
-          <DropdownMenuLabel>
+          {/* data-sentry-mask: keeps the viewer's name and email out of Sentry session replays */}
+          <DropdownMenuLabel data-sentry-mask>
             <p className="truncate text-sm font-medium text-foreground">{user.name}</p>
             <p className="truncate text-xs font-normal text-muted-foreground">{user.email}</p>
           </DropdownMenuLabel>

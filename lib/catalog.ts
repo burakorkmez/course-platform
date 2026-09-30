@@ -1,9 +1,10 @@
 import { cache } from "react"
+import * as Sentry from "@sentry/nextjs"
 import { connection } from "next/server"
 import { asc, desc, eq, type SQL } from "drizzle-orm"
 import { auth, isAdmin } from "@/lib/auth/server"
 import { db } from "@/lib/db"
-import { courses, lessonProgress, lessons, purchases, sections, subscriptions } from "@/lib/db/schema"
+import { authUsers, courses, lessonComments, lessonProgress, lessons, purchases, sections, subscriptions } from "@/lib/db/schema"
 import { hasCourseAccess, type Entitlements } from "@/lib/access"
 import { clock, formatDuration } from "@/lib/utils"
 
@@ -15,6 +16,8 @@ export const getViewer = cache(async () => {
   await connection()
   const { data } = await auth.getSession()
   const user = data?.user
+  // Tags this request's errors, logs, traces (and the replay they link to) with who it was. The id only, never the email.
+  Sentry.setUser(user ? { id: user.id } : null)
   const [progress, owned, subscribed] = user
     ? await Promise.all([
         db.select().from(lessonProgress).where(eq(lessonProgress.userId, user.id)),
@@ -118,6 +121,30 @@ export const getCourse = cache(async (slug: string) => {
   const visible = row && (row.status === "published" || (row.status === "archived" && canAccess(row.id, viewer)) || viewer.admin)
   return visible ? toCourse(row, viewer) : null
 })
+
+// A lesson's discussion: questions newest first, each with its replies oldest first. The AI tutor's answers have no
+// author. Callers check the lesson is watchable first.
+// ponytail: loads the whole discussion; paginate questions once a lesson has a few hundred.
+export async function getComments(lessonId: number) {
+  const rows = await db
+    .select({
+      id: lessonComments.id,
+      parentId: lessonComments.parentId,
+      body: lessonComments.body,
+      createdAt: lessonComments.createdAt,
+      author: { name: authUsers.name, image: authUsers.image },
+    })
+    .from(lessonComments)
+    .leftJoin(authUsers, eq(authUsers.id, lessonComments.userId))
+    .where(eq(lessonComments.lessonId, lessonId))
+    .orderBy(asc(lessonComments.createdAt), asc(lessonComments.id))
+  return rows
+    .filter((r) => r.parentId === null)
+    .reverse()
+    .map((question) => ({ ...question, replies: rows.filter((r) => r.parentId === question.id) }))
+}
+
+export type Comment = Awaited<ReturnType<typeof getComments>>[number]["replies"][number]
 
 // The lesson to pick up from: the first one not completed yet (or the last one when everything is done).
 export const resumeLesson = (course: Course) => course.lessons.find((l) => !l.done) ?? course.lessons.at(-1)

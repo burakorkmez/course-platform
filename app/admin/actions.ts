@@ -1,5 +1,6 @@
 "use server"
 
+import * as Sentry from "@sentry/nextjs"
 import { after } from "next/server"
 import { refresh } from "next/cache"
 import { redirect } from "next/navigation"
@@ -11,6 +12,9 @@ import { db } from "@/lib/db"
 import { courseLevel, courseStatus, courses, lessons, sections } from "@/lib/db/schema"
 import { deleteFiles, uploadAuth } from "@/lib/imagekit"
 import { LIFETIME_PRODUCT_ID, MONTHLY_PRODUCT_ID, polar } from "@/lib/polar"
+
+// Audit trail: every change that affects what students see or can buy logs one "Admin: …" line. requireAdmin() tags it
+// with the admin's user.id, so "who unpublished this / deleted that, and when" is one search in Sentry Logs.
 
 // ponytail: the catalog (lib/catalog.ts) renders per request, so there's no cache to bust. Once it uses 'use cache', call updateTag('catalog') here.
 
@@ -70,6 +74,7 @@ export async function createCourse(formData: FormData) {
     .insert(courses)
     .values({ title: t, slug: uniqueSlug(slugify(t), taken) })
     .returning({ id: courses.id })
+  Sentry.logger.info("Admin: course created", { course_id: course.id })
   redirect(`/admin/courses/${course.id}`)
 }
 
@@ -112,6 +117,12 @@ export async function updateCourse(courseId: number, _: FormState, formData: For
     if (isUniqueViolation(e)) return { error: "Another course already uses that slug or Polar product" }
     throw e
   }
+  Sentry.logger.info("Admin: course updated", {
+    course_id: courseId,
+    course_slug: input.data.slug,
+    status: input.data.status,
+    polar_product_id: productId ?? "none",
+  })
   refresh()
   return { saved: true }
 }
@@ -131,6 +142,7 @@ export async function saveCourseMedia(courseId: number, kind: "thumbnail" | "tra
         : { trailerFileId: fileId, trailerPath: filePath }
     )
     .where(eq(courses.id, courseId))
+  Sentry.logger.info("Admin: course media replaced", { course_id: courseId, kind, replaced_existing: !!old?.[kind] })
   after(() => deleteFiles([old?.[kind]]))
   refresh()
 }
@@ -143,10 +155,11 @@ export async function deleteCourse(courseId: number) {
     with: { sections: { with: { lessons: { columns: { videoFileId: true } } } } },
   })
   await db.delete(courses).where(eq(courses.id, courseId))
-  if (course)
-    after(() =>
-      deleteFiles([course.thumbnailFileId, course.trailerFileId, ...course.sections.flatMap((s) => s.lessons.map((l) => l.videoFileId))])
-    )
+  if (course) {
+    const videos = course.sections.flatMap((s) => s.lessons.map((l) => l.videoFileId))
+    Sentry.logger.warn("Admin: course deleted", { course_id: courseId, course_slug: course.slug, lessons_deleted: videos.length })
+    after(() => deleteFiles([course.thumbnailFileId, course.trailerFileId, ...videos]))
+  }
   redirect("/admin")
 }
 
@@ -168,6 +181,7 @@ export async function deleteSection(sectionId: number) {
   await requireAdmin()
   const videos = await db.select({ id: lessons.videoFileId }).from(lessons).where(eq(lessons.sectionId, sectionId))
   await db.delete(sections).where(eq(sections.id, sectionId))
+  Sentry.logger.warn("Admin: section deleted", { section_id: sectionId, lessons_deleted: videos.length })
   after(() => deleteFiles(videos.map((v) => v.id)))
   refresh()
 }
@@ -226,6 +240,14 @@ export async function updateLesson(lessonId: number, _: FormState, formData: For
     .update(lessons)
     .set({ ...data, position: moved ? nextPosition("lessons", data.sectionId) : undefined })
     .where(eq(lessons.id, lessonId))
+  Sentry.logger.info("Admin: lesson updated", {
+    lesson_id: lessonId,
+    course_id: courseId,
+    lesson_slug: data.slug,
+    published: data.isPublished,
+    free_preview: data.isFreePreview,
+    moved_section: moved,
+  })
   refresh()
   return { saved: true }
 }
@@ -235,6 +257,8 @@ export async function saveLessonVideo(lessonId: number, file: z.input<typeof med
   const { fileId, filePath, durationS = 0 } = media.parse(file)
   const [old] = await db.select({ fileId: lessons.videoFileId }).from(lessons).where(eq(lessons.id, lessonId))
   await db.update(lessons).set({ videoFileId: fileId, videoPath: filePath, durationS }).where(eq(lessons.id, lessonId))
+  // duration_s 0 means the upload's metadata had no duration: progress and auto-complete won't work for this lesson.
+  Sentry.logger.info("Admin: lesson video replaced", { lesson_id: lessonId, duration_s: durationS, replaced_existing: !!old?.fileId })
   after(() => deleteFiles([old?.fileId]))
   refresh()
 }
@@ -244,6 +268,7 @@ export async function deleteLesson(lessonId: number) {
   const lesson = await db.query.lessons.findFirst({ where: eq(lessons.id, lessonId), with: { section: { columns: { courseId: true } } } })
   if (!lesson) redirect("/admin")
   await db.delete(lessons).where(eq(lessons.id, lessonId))
+  Sentry.logger.warn("Admin: lesson deleted", { lesson_id: lessonId, course_id: lesson.section.courseId, lesson_slug: lesson.slug })
   after(() => deleteFiles([lesson.videoFileId]))
   redirect(`/admin/courses/${lesson.section.courseId}`)
 }

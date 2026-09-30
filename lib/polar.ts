@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs"
 import { unstable_cache } from "next/cache"
 import { createPolar } from "@polar-sh/sdk/2026-10"
 
@@ -36,9 +37,11 @@ const fetchPrices = unstable_cache(
   { tags: [PRICES_TAG], revalidate: 3600 }
 )
 
-// Failures aren't cached, so the next request retries; until then the page renders without prices.
+// Failures aren't cached, so the next request retries; until then the page renders without prices, so nobody can buy.
+// Reported as an issue (one per outage, since they group) so it alerts, not just logged.
 export const getPrices = () =>
   fetchPrices().catch((e) => {
-    console.error("Couldn't load prices from Polar", e)
+    Sentry.logger.error("Couldn't load prices from Polar", { error: String(e) })
+    Sentry.captureException(e)
     return {} as Prices
   })
