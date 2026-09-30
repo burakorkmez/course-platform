@@ -1,5 +1,19 @@
-import { relations } from "drizzle-orm"
-import { boolean, integer, pgEnum, pgSchema, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core"
+import { isNull, relations } from "drizzle-orm"
+import {
+  boolean,
+  date,
+  index,
+  integer,
+  pgEnum,
+  pgSchema,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+  type AnyPgColumn,
+} from "drizzle-orm/pg-core"
 
 // Column names are snake_cased by `casing` in lib/db/index.ts and drizzle.config.ts.
 
@@ -57,8 +71,9 @@ export const lessons = pgTable("lessons", {
   position: integer().notNull().default(0),
 })
 
-// Managed by Neon Auth and left out of migrations (schemaFilter); declared only so progress can reference it.
-export const authUsers = pgSchema("neon_auth").table("user", { id: uuid().primaryKey() })
+// Managed by Neon Auth and left out of migrations (schemaFilter); declared only so progress and comments can reference
+// it, and comments can show who wrote them.
+export const authUsers = pgSchema("neon_auth").table("user", { id: uuid().primaryKey(), name: text().notNull(), image: text() })
 
 // One row per user and lesson they've started. A deleted account or lesson takes its progress with it.
 export const lessonProgress = pgTable(
@@ -75,6 +90,42 @@ export const lessonProgress = pgTable(
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.lessonId] })]
+)
+
+// A lesson's discussion: questions, and one level of replies under each. A deleted lesson, question or account takes
+// its comments with it.
+export const lessonComments = pgTable(
+  "lesson_comments",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    lessonId: integer()
+      .notNull()
+      .references(() => lessons.id, { onDelete: "cascade" }),
+    // null = a question; a reply points at its question.
+    parentId: integer().references((): AnyPgColumn => lessonComments.id, { onDelete: "cascade" }),
+    // null = the AI tutor's answer.
+    userId: uuid().references(() => authUsers.id, { onDelete: "cascade" }),
+    body: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index().on(t.lessonId),
+    // One AI answer per question, so two "Ask AI" clicks can't both land.
+    uniqueIndex().on(t.parentId).where(isNull(t.userId)),
+  ]
+)
+
+// AI calls per student per UTC day (tutor messages and "Ask AI" answers), for the daily limit in lib/tutor.ts.
+export const aiUsage = pgTable(
+  "ai_usage",
+  {
+    userId: uuid()
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+    day: date().notNull(),
+    count: integer().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.day] })]
 )
 
 // Written only by the Polar webhook, which is the one source of access. user_id is Polar's external customer id,

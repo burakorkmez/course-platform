@@ -1,4 +1,5 @@
 import { createHmac } from "node:crypto"
+import * as Sentry from "@sentry/nextjs"
 import { getUploadAuthParams } from "@imagekit/next/server"
 
 // Server-only: everything here needs the private key.
@@ -41,6 +42,7 @@ export async function deleteFiles(fileIds: (string | null)[]) {
     const res = await fetch(`https://api.imagekit.io/v1/files/${encodeURIComponent(id)}`, { method: "DELETE", headers: { Authorization: auth } }).catch(
       (e: Error) => ({ ok: false, status: e.message })
     )
-    if (!res.ok) console.error(`ImageKit delete failed for ${id}: ${res.status}`)
+    // Each one is an orphaned file you're paying to store; file_id finds it in the ImageKit dashboard.
+    if (!res.ok) Sentry.logger.warn("ImageKit delete failed", { file_id: id, status: String(res.status) })
   }
 }

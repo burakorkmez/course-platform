@@ -34,7 +34,8 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
 
         <div className="ml-auto flex items-center gap-3 lg:mt-auto lg:ml-0 lg:border-t lg:px-2 lg:pt-4">
           <UserButton />
-          <div className="hidden min-w-0 lg:block">
+          {/* data-sentry-mask: keeps the admin's name and email out of Sentry session replays */}
+          <div data-sentry-mask className="hidden min-w-0 lg:block">
             <p className="truncate text-sm font-medium">{user.name}</p>
             <p className="truncate text-xs text-muted-foreground">{user.email}</p>
           </div>

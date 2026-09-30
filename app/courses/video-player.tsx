@@ -3,6 +3,7 @@
 import "@imagekit/video-player/styles.css"
 import { useEffect, useEffectEvent, useRef } from "react"
 import type { Player } from "@imagekit/video-player"
+import * as Sentry from "@sentry/nextjs"
 import { saveProgress, signLessonUrl } from "./actions"
 
 type Lesson = { courseSlug: string; lessonSlug: string; resumeAt: number; done: boolean; track: boolean }
@@ -33,6 +34,22 @@ export function VideoPlayer({ imagekitId, src, poster, lesson }: { imagekitId: s
     // A failed completion is retried on the next timeupdate; a failed position save just waits for the next one.
     saveProgress(lesson.courseSlug, lesson.lessonSlug, { positionS: time, ...(finish && { completed: true }) }).catch(() => {
       if (finish) autoCompleted.current = false
+      // Students come back to the wrong spot, or to a lesson they finished still unfinished.
+      Sentry.logger.warn("Lesson progress save failed", { course_slug: lesson.courseSlug, lesson_slug: lesson.lessonSlug, completing: finish })
+    })
+  })
+
+  // "The video won't play" is the support email this answers: which lesson, how far in, and why. media_error_code 2 is
+  // the network, 3 decoding, 4 an unreachable or unsupported source (an expired or refused signature ends up here too).
+  // The linked replay and trace show what led up to it; signatures are scrubbed in instrumentation-client.ts.
+  const logError = useEffectEvent((player: Player) => {
+    const error = player.error()
+    Sentry.logger.error("Video playback failed", {
+      video: lesson ? "lesson" : "trailer",
+      ...(lesson && { course_slug: lesson.courseSlug, lesson_slug: lesson.lessonSlug }),
+      media_error_code: error?.code ?? 0,
+      media_error_message: error?.message ?? "",
+      position_s: Math.floor(player.currentTime() ?? 0),
     })
   })
 
@@ -59,6 +76,7 @@ export function VideoPlayer({ imagekitId, src, poster, lesson }: { imagekitId: s
       p.one("loadedmetadata", () => resume(p))
       p.on("timeupdate", () => report(p, false))
       p.on("pause", () => report(p, true))
+      p.on("error", () => logError(p))
       // Without a poster, ImageKit generates one from the video.
       p.src({ src, ...(poster && { poster: { src: poster } }) })
       player = p

@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs"
 import { notFound, redirect } from "next/navigation"
 import { connection } from "next/server"
 import { createNeonAuth } from "@neondatabase/auth/next/server"
@@ -23,6 +24,11 @@ export async function requireAdmin() {
   await connection()
   const { data: session } = await auth.getSession()
   if (!session?.user) redirect("/sign-in?next=/admin")
-  if (!isAdmin(session.user)) notFound()
+  Sentry.setUser({ id: session.user.id })
+  if (!isAdmin(session.user)) {
+    // Someone signed in probing /admin or POSTing admin actions directly. One now and then is curiosity; a burst isn't.
+    Sentry.logger.warn("Admin access denied")
+    notFound()
+  }
   return session.user
 }

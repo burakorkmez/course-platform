@@ -29,6 +29,20 @@
       "when": 1790652184483,
       "tag": "0003_fantastic_moondragon",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790746034960,
+      "tag": "0004_aspiring_human_cannonball",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790746990516,
+      "tag": "0005_lucky_the_anarchist",
+      "breakpoints": true
     }
   ]
 }

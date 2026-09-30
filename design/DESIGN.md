@@ -111,7 +111,7 @@ Borders are always the 1px hairline `border` token.
 
 **Feature card (bento)**: `rounded-2xl border bg-card` with the title and description on top and a small mock of the real UI at the bottom (curriculum rows, progress ring, code panel, video frame). Grid: `md:grid-cols-2 lg:grid-cols-3`, with wide cards on `md:col-span-2`. Give a mock `flex-1` when it should fill the leftover height.
 
-**Closing CTA**: a `rounded-3xl border bg-card` card with a `glow-planet` rising from the bottom (`absolute top-[68%] left-1/2 -z-10 w-176 -translate-x-1/2 sm:w-272`), an h2 with one `text-gradient` phrase, and a default + outline button pair.
+**Closing CTA**: a `rounded-3xl border bg-card` card with the sunrise globe video behind it (`<HeroVideo name="cta-globe" className="top-1/4 mask-t-from-60%" />`: pushed down a quarter so the sunrise lands under the buttons, its top edge masked into the card), an h2 with one `text-gradient` phrase, and a default + outline button pair.
 
 **Avatar stack**: `flex -space-x-2` of `size-8 rounded-full ring-2 ring-background` images, next to `<Stars />` and a one-line caption.
 
@@ -121,8 +121,8 @@ Borders are always the 1px hairline `border` token.
 
 ## Signature effects (in `globals.css`)
 
-- **Hero globe video** (`public/hero-globe.mp4` + `public/hero-globe.jpg` poster): a full-screen, muted, looping `<video>` behind the hero content, `absolute inset-0 -z-10 object-cover`. The hero section uses `-mt-18 min-h-svh` so it slides under the header. Its `<source>` has `media="(prefers-reduced-motion: no-preference)"`, so reduced-motion users get the still poster and never download the video. It lives in `components/hero-video.tsx` with a round outline pause button (`absolute right-4 bottom-20`, hidden under reduced motion). On top go a fixed-size dark radial scrim behind the text (`ellipse 38rem 24rem`, `rgb(5 6 15 / .85)` fading out) and a `from-background` fade over the bottom third so the globe melts into the page. Text on the video is one step brighter than usual (`text-foreground/80` for the lead instead of `text-muted-foreground`). The product preview overlaps the fade with `-mt-16`.
-- `glow-planet`: the dark disc with the glowing rim, in CSS. Give it a width and a position; the closing CTA uses it, and it's the cheap way to echo the globe on pages without video (checkout success, empty states).
+- **Hero globe video** (`public/hero-globe.mp4` + `public/hero-globe.jpg` poster): a full-screen, muted, looping `<video>` behind the hero content, `absolute inset-0 -z-10 object-cover`. The hero section uses `-mt-18 min-h-svh` so it slides under the header. Its `<source>` has `media="(prefers-reduced-motion: no-preference)"`, so reduced-motion users get the still poster and never download the video. It lives in `components/hero-video.tsx` (`<HeroVideo name="hero-globe" />` plays `public/<name>.mp4`) with a round outline pause button (bottom right, hidden under reduced motion; the hero lifts it with `buttonClassName="bottom-20"`). On top go a fixed-size dark radial scrim behind the text (`ellipse 38rem 24rem`, `rgb(5 6 15 / .85)` fading out) and a `from-background` fade over the bottom third so the globe melts into the page. Text on the video is one step brighter than usual (`text-foreground/80` for the lead instead of `text-muted-foreground`). The product preview overlaps the fade with `-mt-16`.
+- `glow-planet`: the dark disc with the glowing rim, in CSS. Give it a width and a position; checkout success uses it, and it's the cheap way to echo the globe on pages without video (checkout success, empty states).
 - `text-gradient`: a lavender to periwinkle gradient for the accent words in a heading.
 - Media frame: `rounded-2xl border bg-card/60 p-2`, with the frame glow above and a `bg-linear-to-t from-background` fade over the bottom third.
 
@@ -145,8 +145,10 @@ All images are AI-generated in two styles that match the palette. Generate new o
 - **Thumbnails and illustrations**: minimal isometric 3D, frosted glass objects with glowing periwinkle (`#7c8cff`) edges and rim light, on a deep navy-black (`#05060f`) background, centered with generous empty space, no text or logos.
 - **People**: photorealistic head-and-shoulders portraits on a seamless dark navy backdrop with a subtle periwinkle rim light.
 
-- **Hero video**: Kling 3.0 (`pro` = 1080p, 10s, sound off) animating `design/globe.png` with a locked camera. It's made loopable by crossfading the last 2s into the first 2s, then encoded without audio:
-  `ffmpeg -i raw.mp4 -filter_complex "[0:v]split[x][y];[x]trim=start=2,setpts=PTS-STARTPTS[a];[y]trim=end=2,setpts=PTS-STARTPTS[b];[a][b]xfade=transition=fade:duration=2:offset=<duration-4>,format=yuv420p[v]" -map "[v]" -an -c:v libx264 -preset slow -crf 28 -movflags +faststart public/hero-globe.mp4`, and the poster is its first frame (`ffmpeg -i public/hero-globe.mp4 -frames:v 1 -q:v 4 public/hero-globe.jpg`).
+- **Globe videos**: Kling 3.0 (`pro` = 1080p, 10s, sound off) animating a still with a locked camera: `design/globe.png` for the hero, `design/cta-globe.png` (a sunrise over the horizon) for the closing CTA. It's made loopable by crossfading the last 2s into the first 2s, then encoded without audio:
+  `ffmpeg -i raw.mp4 -filter_complex "[0:v]split[x][y];[x]trim=start=2,setpts=PTS-STARTPTS[a];[y]trim=end=2,setpts=PTS-STARTPTS[b];[a][b]xfade=transition=fade:duration=2:offset=<duration-4>,format=yuv420p[v]" -map "[v]" -an -c:v libx264 -preset slow -crf 28 -movflags +faststart public/<name>.mp4`, and the poster is its first frame (`ffmpeg -i public/<name>.mp4 -frames:v 1 -q:v 4 public/<name>.jpg`).
+
+- **Footer scene** (`public/footer-scene.mp4` + `.jpg`, source still `design/footer-scene.png`): the same pipeline, 16:9, from a generated still of a frosted-glass cube-head dev lounging on a beanbag with a laptop, bottom-left, over navy dunes. `SiteFooter` plays it full-bleed with `object-bottom-left`; from `md` its height is `clamp(36rem,50vw,60rem)` so the character keeps its spot beside the text, and on phones the video becomes a `h-104` strip under the links.
 
 - **Sign-in scene** (`public/sign-in-scene.mp4` + `.jpg`): the same pipeline, 1:1, starting from a generated still of the brand star rising over a city-lit planet with an orbital ring.
 
